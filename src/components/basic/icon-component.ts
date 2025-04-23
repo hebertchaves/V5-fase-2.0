@@ -339,8 +339,6 @@ function getIconUnicode(library: string, iconName: string): string {
  * Processa um componente de ícone Quasar (q-icon)
  */
 export async function processIconComponent(node: QuasarNode, settings: PluginSettings): Promise<FrameNode> {
-  logDebug('icon', `Processando ícone: ${JSON.stringify(node.attributes)}`);
-  
   const iconFrame = figma.createFrame();
   iconFrame.name = "q-icon";
   
@@ -368,54 +366,31 @@ export async function processIconComponent(node: QuasarNode, settings: PluginSet
   iconFrame.layoutMode = "HORIZONTAL";
   iconFrame.primaryAxisAlignItems = "CENTER";
   iconFrame.counterAxisAlignItems = "CENTER";
+  iconFrame.fills = [{ type: 'SOLID', color: { r: 1, g: 1, b: 1 }, opacity: 0 }];
   
-  // Extrair nome do ícone
-  const iconName = props.name || "";
+  // Criar um placeholder simples para o ícone
+  const placeholder = figma.createRectangle();
+  placeholder.name = "icon-placeholder";
+  placeholder.resize(iconSize * 0.75, iconSize * 0.75);
+  placeholder.cornerRadius = iconSize * 0.2;
   
-  // Tentar carregar a fonte Material Icons
-  try {
-    await figma.loadFontAsync({ family: "Material Icons", style: "Regular" });
-    
-    // Criar o nó de texto para o ícone
-    const textNode = figma.createText();
-    textNode.name = `icon-${iconName || "default"}`;
-    textNode.fontSize = iconSize;
-    
-    // Obter o caractere Unicode do ícone
-    const library = getIconLibrary(iconName);
-    textNode.characters = getIconUnicode(library, iconName);
-    
-    // Aplicar cor
-    if (props.color && quasarColors[props.color]) {
-      textNode.fills = [{ type: 'SOLID', color: quasarColors[props.color] }];
-    }
-    
-    iconFrame.appendChild(textNode);
-  } catch (error) {
-    console.error('Erro ao processar ícone:', error);
-    
-    // Fallback: criar um frame colorido como placeholder
-    const placeholder = figma.createRectangle();
-    placeholder.resize(iconSize * 0.7, iconSize * 0.7);
-    placeholder.cornerRadius = iconSize * 0.2;
-    
-    if (props.color && quasarColors[props.color]) {
-      placeholder.fills = [{ type: 'SOLID', color: quasarColors[props.color] }];
-    } else {
-      placeholder.fills = [{ type: 'SOLID', color: { r: 0.5, g: 0.5, b: 0.5 } }];
-    }
-    
-    iconFrame.appendChild(placeholder);
+  // Aplicar cor ao placeholder
+  if (props.color && quasarColors[props.color]) {
+    placeholder.fills = [{ type: 'SOLID', color: quasarColors[props.color] }];
+  } else {
+    placeholder.fills = [{ type: 'SOLID', color: { r: 0.5, g: 0.5, b: 0.5 } }];
   }
+  
+  iconFrame.appendChild(placeholder);
   
   return iconFrame;
 }
 
-// Função auxiliar para gerar um placeholder baseado no nome do ícone
+// Adicionar esta função auxiliar para criar placeholders mais representativos
 function getPlaceholderForIcon(iconName: string): string {
   if (!iconName) return "●";
   
-  // Obter primeira letra ou caractere representativo
+  // Obter caractere representativo baseado no nome
   if (iconName.includes('arrow')) return "→";
   if (iconName.includes('close') || iconName.includes('cancel')) return "✕";
   if (iconName.includes('check')) return "✓";
@@ -429,7 +404,7 @@ function getPlaceholderForIcon(iconName: string): string {
   if (iconName.includes('search')) return "🔍";
   if (iconName.includes('menu')) return "☰";
   
-  // Placeholder genérico para outros ícones
+  // Fallback genérico
   return iconName.charAt(0).toUpperCase() || "●";
 }
 

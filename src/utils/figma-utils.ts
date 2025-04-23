@@ -2,30 +2,7 @@
 
 import { RGB, RGBA, ExtractedStyles } from '../types/settings';
 
-/**
- * Carrega a fonte Material Icons para uso nos ícones
- * @returns Promise<boolean> indicando se a fonte foi carregada com sucesso
- */
-export async function loadIconFont(): Promise<boolean> {
-  try {
-    // Tentar carregar a fonte Material Icons
-    await figma.loadFontAsync({ family: "Material Icons", style: "Regular" });
-    console.log('Fonte Material Icons carregada com sucesso');
-    return true;
-  } catch (error) {
-    console.error('Erro ao carregar fonte Material Icons:', error);
-    
-    // Tentar fontes alternativas
-    try {
-      await figma.loadFontAsync({ family: "Material Symbols Outlined", style: "Regular" });
-      console.log('Fonte Material Symbols Outlined carregada como alternativa');
-      return true;
-    } catch (innerError) {
-      console.error('Erro ao carregar fontes alternativas:', innerError);
-      return false;
-    }
-  }
-}
+
 
 /**
  * Carrega as fontes necessárias para uso no Figma
@@ -33,11 +10,10 @@ export async function loadIconFont(): Promise<boolean> {
 export async function loadRequiredFonts() {
   // Lista de fontes primárias e alternativas
   const fontOptions = [
-    { family: "Material Icons", style: "Regular" },
-    { family: "Material Symbols Outlined", style: "Regular" },
     { family: "Roboto", style: "Regular" },
     { family: "Roboto", style: "Medium" },
-    { family: "Roboto", style: "Bold" }
+    { family: "Roboto", style: "Bold" },
+    { family: "Material Icons", style: "Regular" }
   ];
   
   // Carregando fontes com tratamento de erro
@@ -56,23 +32,46 @@ export async function loadRequiredFonts() {
   
   return loadedFonts.length > 0;
 }
-
+/**
+ * Carrega a fonte Material Icons para uso nos ícones
+ * @returns Promise<boolean> indicando se a fonte foi carregada com sucesso
+ */
+export async function loadIconFont(): Promise<boolean> {
+  try {
+    // Tentar carregar a fonte Material Icons
+    await figma.loadFontAsync({ family: "Material Icons", style: "Regular" });
+    console.log('Fonte Material Icons carregada com sucesso');
+    return true;
+  } catch (error) {
+    console.error('Erro ao carregar fonte Material Icons:', error);
+    
+  }
+}
 export async function createText(content: string, options: any = {}): Promise<TextNode | null> {
   try {
     const textNode = figma.createText();
     
-    // Garantir que a fonte esteja carregada
-    await figma.loadFontAsync({
-      family: options.fontFamily || "Roboto", // MODIFICAÇÃO AQUI: usar Roboto como padrão
-      style: options.fontStyle || "Regular"
-    });
+    // Determinar qual fonte usar e garantir que seja carregada
+    const fontFamily = options.fontFamily || "Roboto";
+    const fontStyle = options.fontStyle || "Regular";
+    
+    try {
+      await figma.loadFontAsync({ family: fontFamily, style: fontStyle });
+    } catch (fontError) {
+      console.warn(`Não foi possível carregar a fonte ${fontFamily} ${fontStyle}, tentando alternativa:`, fontError);
+      // Tentar alternativa
+      await figma.loadFontAsync({ family: "Roboto", style: "Regular" });
+      // Atualizar as opções
+      options.fontFamily = "Roboto";
+      options.fontStyle = "Regular";
+    }
     
     // Definir o texto
     textNode.characters = content || '';
     
     // Definir explicitamente a fonte após carregar
     textNode.fontName = {
-      family: options.fontFamily || "Roboto", // MODIFICAÇÃO AQUI: usar Roboto como padrão
+      family: options.fontFamily || "Roboto",
       style: options.fontStyle || "Regular"
     };
     
@@ -80,11 +79,19 @@ export async function createText(content: string, options: any = {}): Promise<Te
     if (options.fontSize) textNode.fontSize = options.fontSize;
     if (options.fontWeight) {
       if (options.fontWeight === 'bold') {
-        await figma.loadFontAsync({ family: "Roboto", style: "Bold" }); // MODIFICAÇÃO AQUI
-        textNode.fontName = { family: "Roboto", style: "Bold" };
+        try {
+          await figma.loadFontAsync({ family: options.fontFamily || "Roboto", style: "Bold" });
+          textNode.fontName = { family: options.fontFamily || "Roboto", style: "Bold" };
+        } catch (error) {
+          console.warn('Não foi possível carregar a fonte bold:', error);
+        }
       } else if (options.fontWeight === 'medium') {
-        await figma.loadFontAsync({ family: "Roboto", style: "Medium" }); // MODIFICAÇÃO AQUI
-        textNode.fontName = { family: "Roboto", style: "Medium" };
+        try {
+          await figma.loadFontAsync({ family: options.fontFamily || "Roboto", style: "Medium" });
+          textNode.fontName = { family: options.fontFamily || "Roboto", style: "Medium" };
+        } catch (error) {
+          console.warn('Não foi possível carregar a fonte medium:', error);
+        }
       }
     }
     

@@ -35,7 +35,7 @@ setupLogger('INFO');
 
 // Inicializar o plugin
 async function initializePlugin() {
-  // Carregar fontes necessárias antecipadamente
+  // Carregar fontes necessárias antecipadamente - CERTIFICAR QUE ISTO OCORRE PRIMEIRO
   await loadRequiredFonts();
   
   // Registrar todos os processadores de componentes

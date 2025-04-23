@@ -3,7 +3,7 @@ import { QuasarNode, PluginSettings } from '../../types/settings';
 import { extractStylesAndProps, detectComponentType } from '../../utils/quasar-utils';
 import { applyStylesToFigmaNode, createText } from '../../utils/figma-utils';
 import { processQuasarClass } from '../../utils/style-utils';
-import { processGenericComponentExternal } from './generic-component';
+import { processGenericComponent } from '../generic/generic-component';
 import { processBasicComponents } from '../basic/basic-components';
 import { processLayoutComponents } from '../layout/layout-components';
 
@@ -71,7 +71,7 @@ export async function processGenericContainer(node: QuasarNode, settings: Plugin
           break;
         // ... outros casos
         default:
-          childNode = await processGenericComponentExternal(child, settings);
+          childNode = await processGenericComponent(child, settings);
           break;
       }
     } else {

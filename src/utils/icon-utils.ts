@@ -13,6 +13,34 @@ async function checkMaterialIconsAvailability(): Promise<boolean> {
     return false;
   }
 }
+/**
+ * Carrega as fontes necessárias para uso no Figma
+ */
+export async function loadRequiredFonts() {
+  // Lista de fontes primárias e alternativas
+  const fontOptions = [
+    { family: "Material Icons", style: "Regular" },
+    { family: "Roboto", style: "Regular" },
+    { family: "Roboto", style: "Medium" },
+    { family: "Roboto", style: "Bold" }
+  ];
+  
+  // Carregando fontes com tratamento de erro
+  const loadedFonts = [];
+  
+  for (const font of fontOptions) {
+    try {
+      await figma.loadFontAsync(font);
+      loadedFonts.push(font.family + " " + font.style);
+      console.log(`Fonte carregada com sucesso: ${font.family} ${font.style}`);
+    } catch (error) {
+      console.warn(`Falha ao carregar fonte ${font.family} ${font.style}: ${error}`);
+      // Continuar com as próximas fontes
+    }
+  }
+  
+  return loadedFonts.length > 0;
+}
 
 /**
  * Carrega a fonte Material Icons para uso nos ícones

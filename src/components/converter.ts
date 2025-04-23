@@ -1,6 +1,6 @@
 // src/components/converter.ts
 import { parseQuasarTemplate, extractTemplateContent } from '../parser/template';
-import { loadRequiredFonts,applyStylesToFigmaNode, extractInlineStyles } from '../utils/figma-utils';
+import { loadRequiredFonts,applyStylesToFigmaNode, extractInlineStyles, createText } from '../utils/figma-utils';
 import { PluginSettings, QuasarNode, ComponentTypeInfo } from '../types/settings';
 import { detectComponentType } from '../utils/quasar-utils';
 import { componentService } from '../utils/component-service';
@@ -59,18 +59,43 @@ export async function convertQuasarToFigma(code: string, settings: PluginSetting
  * Processa a árvore de nós com suporte completo a cores
  */
 async function processNodeTree(node: QuasarNode, parentFigmaNode: FrameNode, settings: PluginSettings): Promise<void> {
-  // Ignorar nós de texto vazios
-  if (node.tagName === '#text' && (!node.text || !node.text.trim())) {
-    return;
+  // Processar nós de texto de forma simplificada
+  if (node.tagName === '#text' && node.text && node.text.trim()) {
+    try {
+      // Método simplificado para texto
+      await figma.loadFontAsync({ family: "Roboto", style: "Regular" });
+      const textNode = figma.createText();
+      textNode.characters = node.text.trim();
+      parentFigmaNode.appendChild(textNode);
+      return;
+    } catch (error) {
+      console.error('Erro ao criar nó de texto:', error);
+    }
   }
   
-  // Processar nós de texto
+  // Processar nós de texto - CORRIGIDO
   if (node.tagName === '#text' && node.text) {
-    const textNode = figma.createText();
-    await figma.loadFontAsync({ family: "Roboto", style: "Regular" });
-    textNode.characters = node.text.trim();
-    parentFigmaNode.appendChild(textNode);
-    return;
+    try {
+      const textNode = await createText(node.text.trim());
+      if (textNode) {
+        parentFigmaNode.appendChild(textNode);
+      }
+      return;
+    } catch (error) {
+      logError('processNode', `Erro ao criar nó de texto: ${error}`);
+      // Continue com a lógica de fallback abaixo em caso de erro
+      
+      // Fallback para texto em caso de erro na função createText
+      try {
+        const fallbackText = figma.createText();
+        await figma.loadFontAsync({ family: "Roboto", style: "Regular" });
+        fallbackText.characters = node.text.trim();
+        parentFigmaNode.appendChild(fallbackText);
+        return;
+      } catch (fallbackError) {
+        logError('processNode', `Erro no fallback de texto: ${fallbackError}`);
+      }
+    }
   }
   
   // Log para debug
@@ -217,7 +242,7 @@ export async function processGenericComponent(node: QuasarNode, settings: Plugin
   
   // Adicionar texto que indica o tipo de componente
   const headerText = figma.createText();
-  await figma.loadFontAsync({ family: "Inter", style: "Medium" });
+  await figma.loadFontAsync({ family: "Roboto", style: "Medium" });
   headerText.characters = `Componente ${node.tagName}`;
   headerText.fontSize = 16;
   headerText.fills = [{ type: 'SOLID', color: { r: 0.4, g: 0.4, b: 0.4 } }];
@@ -227,7 +252,7 @@ export async function processGenericComponent(node: QuasarNode, settings: Plugin
   // Processar atributos relevantes
   if (node.attributes && Object.keys(node.attributes).length > 0) {
     const attrsText = figma.createText();
-    await figma.loadFontAsync({ family: "Inter", style: "Regular" });
+    await figma.loadFontAsync({ family: "Roboto", style: "Regular" });
     
     const attrStr = Object.entries(node.attributes)
       .filter(([key, _]) => key !== 'style' && key !== 'class' && !key.startsWith('v-'))
