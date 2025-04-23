@@ -7,7 +7,27 @@ import { analyzeComponentColors, applyQuasarColors } from '../../utils/color-uti
 import { processIconComponent } from './icon-component';
 import { logDebug, logError } from '../../utils/logger.js';
 
-
+function getPlaceholderForIcon(iconName: string): string {
+  if (!iconName) return "●";
+  
+  // Obter primeira letra ou caractere representativo
+  if (iconName.includes('map')) return "🗺️";
+  if (iconName.includes('arrow')) return "→";
+  if (iconName.includes('close') || iconName.includes('cancel')) return "✕";
+  if (iconName.includes('check')) return "✓";
+  if (iconName.includes('add') || iconName.includes('plus')) return "+";
+  if (iconName.includes('remove') || iconName.includes('minus')) return "-";
+  if (iconName.includes('star')) return "★";
+  if (iconName.includes('heart')) return "♥";
+  if (iconName.includes('home')) return "⌂";
+  if (iconName.includes('user') || iconName.includes('person')) return "👤";
+  if (iconName.includes('settings') || iconName.includes('cog')) return "⚙";
+  if (iconName.includes('search')) return "🔍";
+  if (iconName.includes('menu')) return "☰";
+  
+  // Placeholder genérico para outros ícones
+  return iconName.charAt(0).toUpperCase() || "●";
+}
 
 /**
  * Processa um componente de botão Quasar (q-btn)
@@ -170,7 +190,32 @@ export async function processButtonComponent(node: QuasarNode, settings: PluginS
         contentNode.appendChild(textPlaceholder);
       }
     }
-    
+    for (const childNode of node.childNodes) {
+      if (childNode.tagName === 'q-icon') {
+        try {
+          // Criar uma cópia do nó com o parentContext adequado
+          const iconNodeWithContext: QuasarNode = {
+            ...childNode,
+            parentContext: {
+              tagName: 'q-btn',
+              attributes: node.attributes,
+              isPrimaryComponent: true
+            }
+          };
+          
+          const iconComponent = await processIconComponent(iconNodeWithContext, settings);
+          
+          // Posicionar ícone corretamente com base nos atributos
+          if (childNode.attributes?.left) {
+            contentNode.insertChild(0, iconComponent);
+          } else {
+            contentNode.appendChild(iconComponent);
+          }
+        } catch (error) {
+          console.error(`Erro ao processar ícone dentro do botão:`, error);
+        }
+      }
+    }
     // Aplicar cores do Quasar
     applyQuasarColors(buttonFrame, colorAnalysis, 'btn');
     

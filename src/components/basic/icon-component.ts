@@ -1,10 +1,12 @@
-// src/components/basic/icon-component.ts (atualizado)
 import { QuasarNode, PluginSettings } from '../../types/settings';
 import { extractStylesAndProps } from '../../utils/quasar-utils';
 import { applyStylesToFigmaNode, createText } from '../../utils/figma-utils';
 import { quasarColors } from '../../data/color-map';
 import { logDebug } from '../../utils/logger.js';
 
+/**
+ * Processa um componente de ícone Quasar (q-icon)
+ */
 export async function processIconComponent(node: QuasarNode, settings: PluginSettings): Promise<FrameNode> {
   logDebug('icon', `Processando ícone: ${JSON.stringify(node.attributes)}`);
   
@@ -23,7 +25,7 @@ export async function processIconComponent(node: QuasarNode, settings: PluginSet
       case 'lg': iconSize = 32; break;
       case 'xl': iconSize = 40; break;
       default:
-        // Tentar extrair valor numérico
+        // Tentar extrair valor numérico diretamente
         const sizeNum = parseInt(props.size);
         if (!isNaN(sizeNum)) {
           iconSize = sizeNum;
@@ -35,60 +37,65 @@ export async function processIconComponent(node: QuasarNode, settings: PluginSet
   iconFrame.layoutMode = "HORIZONTAL";
   iconFrame.primaryAxisAlignItems = "CENTER";
   iconFrame.counterAxisAlignItems = "CENTER";
+  iconFrame.fills = [{ type: 'SOLID', color: { r: 1, g: 1, b: 1 }, opacity: 0 }];
   
   // Extrair nome do ícone
   const iconName = props.name || "";
+  const normalizedIconName = normalizeIconName(iconName);
   
-  // CORREÇÃO: Tentar diferentes variantes da fonte Material Icons
-  let fontLoaded = false;
-  const fontVariants = [
+  // Array de fontes para tentar em ordem
+  const fontsToTry = [
     { family: "Material Icons", style: "Regular" },
-    { family: "Material Icons Outlined", style: "Regular" },
-    { family: "MaterialIcons", style: "Regular" },
-    { family: "Material Symbols Outlined", style: "Regular" }
+    { family: "Material Symbols Outlined", style: "Regular" },
+    { family: "Roboto", style: "Regular" }
   ];
   
-  // Tentativa de carregar uma das variantes da fonte
-  for (const fontVariant of fontVariants) {
+  let fontLoaded = false;
+  let usedFont = null;
+  
+  // Tentar carregar fontes em ordem
+  for (const font of fontsToTry) {
     try {
-      await figma.loadFontAsync(fontVariant);
+      await figma.loadFontAsync(font);
       fontLoaded = true;
-      
-      // Criar o nó de texto para o ícone
-      const textNode = figma.createText();
-      textNode.name = `icon-${iconName || "default"}`;
-      textNode.fontSize = iconSize;
-      
-      // Definir explicitamente a família da fonte carregada
-      textNode.fontName = {
-        family: fontVariant.family,
-        style: fontVariant.style
-      };
-      
-      // Obter o caractere Unicode do ícone
-      const library = getIconLibrary(iconName);
-      textNode.characters = getIconUnicode(library, iconName);
-      
-      // Aplicar cor
-      if (props.color && quasarColors[props.color]) {
-        textNode.fills = [{ type: 'SOLID', color: quasarColors[props.color] }];
-      }
-      
-      iconFrame.appendChild(textNode);
-      break; // Sair do loop quando uma fonte for carregada com sucesso
+      usedFont = font;
+      break;
     } catch (error) {
-      console.warn(`Não foi possível carregar a fonte ${fontVariant.family} ${fontVariant.style}:`, error);
-      // Continua tentando a próxima fonte
+      console.warn(`Não foi possível carregar a fonte ${font.family}:`, error);
+      // Continue tentando outras fontes
     }
   }
   
-  // Se nenhuma fonte pôde ser carregada, criar um placeholder visual
-  if (!fontLoaded) {
+  if (fontLoaded && usedFont) {
+    // Criar o nó de texto para o ícone
+    const textNode = figma.createText();
+    textNode.name = `icon-${normalizedIconName || "default"}`;
+    textNode.fontSize = iconSize;
+    textNode.fontName = usedFont;
+    
+    // Obter o caractere Unicode do ícone ou usar fallback
+    const iconLibrary = getIconLibrary(iconName);
+    const iconUnicode = getIconUnicode(iconLibrary, normalizedIconName);
+    textNode.characters = iconUnicode || getPlaceholderForIcon(normalizedIconName);
+    
+    // Alinhar o texto no centro
+    textNode.textAlignHorizontal = "CENTER";
+    textNode.textAlignVertical = "CENTER";
+    
+    // Aplicar cor
+    if (props.color && quasarColors[props.color]) {
+      textNode.fills = [{ type: 'SOLID', color: quasarColors[props.color] }];
+    }
+    
+    iconFrame.appendChild(textNode);
+  } else {
+    // Fallback visual quando nenhuma fonte está disponível
     const placeholder = figma.createRectangle();
-    placeholder.name = "icon-placeholder";
+    placeholder.name = `icon-placeholder-${normalizedIconName || "default"}`;
     placeholder.resize(iconSize * 0.7, iconSize * 0.7);
     placeholder.cornerRadius = iconSize * 0.2;
     
+    // Aplicar cor se disponível
     if (props.color && quasarColors[props.color]) {
       placeholder.fills = [{ type: 'SOLID', color: quasarColors[props.color] }];
     } else {
@@ -96,32 +103,91 @@ export async function processIconComponent(node: QuasarNode, settings: PluginSet
     }
     
     iconFrame.appendChild(placeholder);
-    
-    // Adicionar marca de texto quando ícone for usado
-    if (iconName) {
-      try {
-        // Tentar carregar uma fonte básica para mostrar o nome do ícone
-        await figma.loadFontAsync({ family: "Roboto", style: "Regular" });
-        const iconNameText = figma.createText();
-        iconNameText.characters = iconName.substring(0, 1).toUpperCase(); // Apenas a primeira letra
-        iconNameText.fontSize = iconSize * 0.5;
-        iconNameText.textAlignHorizontal = "CENTER";
-        iconNameText.textAlignVertical = "CENTER";
-        
-        // Centralizar o texto no placeholder
-        iconNameText.x = (iconSize - iconNameText.width) / 2;
-        iconNameText.y = (iconSize - iconNameText.height) / 2;
-        
-        placeholder.appendChild(iconNameText);
-      } catch (textError) {
-        // Se falhar, apenas deixar o placeholder sem texto
-        console.warn('Não foi possível adicionar texto ao placeholder do ícone:', textError);
-      }
-    }
   }
   
   return iconFrame;
 }
+
+// Função auxiliar para gerar um placeholder baseado no nome do ícone
+function getPlaceholderForIcon(iconName: string): string {
+  if (!iconName) return "●";
+  
+  // Obter primeira letra ou caractere representativo
+  if (iconName.includes('map')) return "🗺️";
+  if (iconName.includes('arrow')) return "→";
+  if (iconName.includes('close') || iconName.includes('cancel')) return "✕";
+  if (iconName.includes('check')) return "✓";
+  if (iconName.includes('add') || iconName.includes('plus')) return "+";
+  if (iconName.includes('remove') || iconName.includes('minus')) return "-";
+  if (iconName.includes('star')) return "★";
+  if (iconName.includes('heart')) return "♥";
+  if (iconName.includes('home')) return "⌂";
+  if (iconName.includes('user') || iconName.includes('person')) return "👤";
+  if (iconName.includes('settings') || iconName.includes('cog')) return "⚙";
+  if (iconName.includes('search')) return "🔍";
+  if (iconName.includes('menu')) return "☰";
+  
+  // Placeholder genérico para outros ícones
+  return iconName.charAt(0).toUpperCase() || "●";
+}
+
+// Identificar a biblioteca baseada no prefixo do nome do ícone
+function getIconLibrary(iconName: string): string {
+  if (!iconName) return 'material';
+  
+  if (iconName.startsWith('fa-') || iconName.startsWith('fas ') || 
+      iconName.startsWith('far ') || iconName.startsWith('fab ')) {
+    return 'fontawesome';
+  } else if (iconName.startsWith('ion-')) {
+    return 'ionicons';
+  } else if (iconName.startsWith('eva-')) {
+    return 'eva';
+  } else if (iconName.startsWith('ti-')) {
+    return 'themify';
+  } else if (iconName.startsWith('la-')) {
+    return 'lineawesome';
+  } else if (iconName.startsWith('mdi-')) {
+    return 'mdi';
+  } else {
+    return 'material'; // Padrão do Quasar
+  }
+}
+
+// Remover prefixos para obter o nome normalizado do ícone
+function normalizeIconName(iconName: string): string {
+  if (!iconName) return '';
+  
+  // Remover prefixos conhecidos
+  const prefixes = ['fa-', 'fas ', 'far ', 'fab ', 'ion-', 'eva-', 'ti-', 'la-', 'mdi-'];
+  
+  let normalizedName = iconName;
+  for (const prefix of prefixes) {
+    if (normalizedName.startsWith(prefix)) {
+      normalizedName = normalizedName.substring(prefix.length);
+      break;
+    }
+  }
+  
+  return normalizedName;
+}
+
+// Mapear o nome do ícone para o caractere Unicode
+function getIconUnicode(library: string, iconName: string): string {
+  // Para Material Design Icons
+  if (library === 'material' && materialIconsMap[iconName]) {
+    return materialIconsMap[iconName];
+  }
+  
+  // Fallback para um ícone genérico
+  return '\uE5CD'; // close icon como fallback
+}
+
+// Exportar funções utilitárias para uso em outros componentes
+export {
+  getIconLibrary,
+  normalizeIconName,
+  getIconUnicode
+};
 
 // Mapeamento para ícones Material Design
 const materialIconsMap: Record<string, string> = {
@@ -1078,174 +1144,4 @@ const materialIconsMap: Record<string, string> = {
 'text_rotate_vertical': '\uE93B',
 'text_rotation_down': '\uE93C',
 'text_rotation_none': '\uE93D',
-}
-
-function extractIconName(node: QuasarNode): string {
-  // Extrair o nome do ícone a partir do nó
-  if (node.attributes?.name) {
-    return node.attributes.name;
-  }
-  
-  // Tentar extrair de classes
-  if (node.attributes?.class) {
-    const classes = node.attributes.class.split(/\s+/);
-    for (const cls of classes) {
-      if (cls.startsWith('fa-') || cls.startsWith('mdi-') || cls.startsWith('material-icons')) {
-        return cls;
-      }
-    }
-  }
-  
-  // Valor padrão
-  return 'info';
-}
-
-function detectIconLibrary(iconName: string): string {
-  // Lógica similar à getIconLibrary existente
-  if (!iconName) return 'material';
-  
-  if (iconName.startsWith('fa-') || iconName.startsWith('fas ') || 
-      iconName.startsWith('far ') || iconName.startsWith('fab ')) {
-    return 'fontawesome';
-  } else if (iconName.startsWith('ion-')) {
-    return 'ionicons';
-  } else if (iconName.startsWith('mdi-')) {
-    return 'mdi';
-  } else {
-    return 'material'; // Padrão do Quasar
-  }
-}
-
-async function checkMaterialIconsAvailability(): Promise<boolean> {
-  try {
-    // Tenta carregar a fonte
-    await figma.loadFontAsync({ family: "Material Icons", style: "Regular" });
-    console.log("Material Icons disponível e carregada com sucesso");
-    return true;
-  } catch (error) {
-    console.error("Material Icons não está disponível:", error);
-    return false;
-  }
-}
-
-async function createIconNode(iconName: string, iconLibrary: string): Promise<FrameNode> {
-  // Tentar usar uma fonte alternativa quando Material Icons não estiver disponível
-  let fontAvailable = false;
-  
-  try {
-    // Tentar carregar a fonte Material Icons
-    await figma.loadFontAsync({ family: "Material Icons", style: "Regular" });
-    fontAvailable = true;
-  } catch (error) {
-    console.log('Fonte Material Icons não disponível, usando fonte alternativa');
-    try {
-      // Tentar usar a fonte Roboto como alternativa
-      await figma.loadFontAsync({ family: "Roboto", style: "Regular" });
-      fontAvailable = true;
-    } catch (innerError) {
-      console.error('Erro ao carregar fonte alternativa:', innerError);
-    }
-  }
-  
-  const iconFrame = figma.createFrame();
-  iconFrame.name = `q-icon-${iconName || "placeholder"}`;
-  
-  // Criar texto ou placeholder dependendo da disponibilidade da fonte
-  if (fontAvailable) {
-    const iconText = figma.createText();
-    iconText.characters = getIconUnicode(iconLibrary, iconName) || "□";
-    iconFrame.appendChild(iconText);
-  } else {
-    // Criar um placeholder visual quando nenhuma fonte está disponível
-    const placeholder = figma.createRectangle();
-    placeholder.resize(24, 24);
-    placeholder.cornerRadius = 4;
-    placeholder.fills = [{ type: 'SOLID', color: { r: 0.5, g: 0.5, b: 0.5 } }];
-    iconFrame.appendChild(placeholder);
-  }
-  
-  return iconFrame;
-}
-
-
-// Identificar a biblioteca baseada no prefixo do nome do ícone
-function getIconLibrary(iconName: string): string {
-  if (iconName.startsWith('fa-') || iconName.startsWith('fas ') || 
-      iconName.startsWith('far ') || iconName.startsWith('fab ')) {
-    return 'fontawesome';
-  } else if (iconName.startsWith('ion-')) {
-    return 'ionicons';
-  } else if (iconName.startsWith('eva-')) {
-    return 'eva';
-  } else if (iconName.startsWith('ti-')) {
-    return 'themify';
-  } else if (iconName.startsWith('la-')) {
-    return 'lineawesome';
-  } else if (iconName.startsWith('mdi-')) {
-    return 'mdi';
-  } else {
-    return 'material'; // Padrão do Quasar
-  }
-}
-
-// Remover prefixos para obter o nome normalizado do ícone
-function normalizeIconName(iconName: string): string {
-  // Remover prefixos conhecidos
-  const prefixes = ['fa-', 'fas ', 'far ', 'fab ', 'ion-', 'eva-', 'ti-', 'la-', 'mdi-'];
-  
-  let normalizedName = iconName;
-  for (const prefix of prefixes) {
-    if (normalizedName.startsWith(prefix)) {
-      normalizedName = normalizedName.substring(prefix.length);
-      break;
-    }
-  }
-  
-  return normalizedName;
-}
-
-// Mapear o nome do ícone para o caractere Unicode
-function getIconUnicode(library: string, iconName: string): string {
-  // Para Material Design Icons
-  if (library === 'material' && materialIconsMap[iconName]) {
-    return materialIconsMap[iconName];
-  }
-  
-  // Fallback para um ícone genérico
-  return '\uE5CD'; // close icon como fallback
-}
-
-/**
- * Processa um componente de ícone Quasar (q-icon)
- */
-
-
-// Adicionar esta função auxiliar para criar placeholders mais representativos
-function getPlaceholderForIcon(iconName: string): string {
-  if (!iconName) return "●";
-  
-  // Obter caractere representativo baseado no nome
-  if (iconName.includes('arrow')) return "→";
-  if (iconName.includes('close') || iconName.includes('cancel')) return "✕";
-  if (iconName.includes('check')) return "✓";
-  if (iconName.includes('add') || iconName.includes('plus')) return "+";
-  if (iconName.includes('remove') || iconName.includes('minus')) return "-";
-  if (iconName.includes('star')) return "★";
-  if (iconName.includes('heart')) return "♥";
-  if (iconName.includes('home')) return "⌂";
-  if (iconName.includes('user') || iconName.includes('person')) return "👤";
-  if (iconName.includes('settings') || iconName.includes('cog')) return "⚙";
-  if (iconName.includes('search')) return "🔍";
-  if (iconName.includes('menu')) return "☰";
-  
-  // Fallback genérico
-  return iconName.charAt(0).toUpperCase() || "●";
-}
-
-// Exportar funções utilitárias para uso em outros componentes
-export {
-  getIconLibrary,
-  normalizeIconName,
-  getIconUnicode,
-  materialIconsMap
 }
