@@ -962,8 +962,6 @@ const materialIconsMap: Record<string, string> = {
 
 }
 
-<<<<<<< HEAD
-=======
 function extractIconName(node: QuasarNode): string {
   // Extrair o nome do ícone a partir do nó
   if (node.attributes?.name) {
@@ -1052,7 +1050,6 @@ async function createIconNode(iconName: string, iconLibrary: string): Promise<Fr
 }
 
 
->>>>>>> 5d4088825e9d6674f10fbf743bba6c55eb1d8933
 // Identificar a biblioteca baseada no prefixo do nome do ícone
 function getIconLibrary(iconName: string): string {
   if (iconName.startsWith('fa-') || iconName.startsWith('fas ') || 
@@ -1137,59 +1134,6 @@ export async function processIconComponent(node: QuasarNode, settings: PluginSet
   // Extrair nome do ícone
   const iconName = props.name || "";
   
-<<<<<<< HEAD
-  if (!iconName && node.attributes && node.attributes.class) {
-    // Alguns ícones são definidos pela classe, como "fas fa-home"
-    const classNames = node.attributes.class.split(" ");
-    for (const className of classNames) {
-      if (className.startsWith("fa-")) {
-        iconName = className.substring(3);
-        break;
-      }
-    }
-  }
-  
-  try {
-    // Identificar biblioteca e nome normalizado do ícone
-    const iconLib = getIconLibrary(iconName);
-    const normalizedName = normalizeIconName(iconName);
-    
-    logDebug('icon', `Biblioteca: ${iconLib}, Nome normalizado: ${normalizedName}`);
-    
-    // Carregar fonte do Material Icons
-    await figma.loadFontAsync({ family: "Material Icons", style: "Regular" });
-    
-    // Criar nó de texto para o ícone
-    const iconText = figma.createText();
-    iconText.name = "icon-text";
-    
-    // Obter o caractere Unicode para o ícone
-    const iconUnicode = getIconUnicode(iconLib, normalizedName);
-    iconText.characters = iconUnicode;
-    
-    // MUDANÇA AQUI: Definir explicitamente a fonte Material Icons
-    iconText.fontName = { family: "Material Icons", style: "Regular" };
-    
-    // Aplicar cor e tamanho
-    iconText.fills = [{ type: 'SOLID', color: iconColor }];
-    iconText.fontSize = iconSize;
-    iconText.textAlignHorizontal = "CENTER";
-    iconText.textAlignVertical = "CENTER";
-    
-    iconFrame.appendChild(iconText);
-    
-  } catch (error) {
-    logDebug('icon', `Erro ao processar ícone: ${error}`);
-    
-    // Fallback: Criar um retângulo colorido como placeholder
-    const iconPlaceholder = figma.createRectangle();
-    iconPlaceholder.name = `icon-placeholder-${iconName || "unknown"}`;
-    iconPlaceholder.resize(iconSize * 0.7, iconSize * 0.7);
-    iconPlaceholder.cornerRadius = iconSize * 0.35;
-    iconPlaceholder.fills = [{ type: 'SOLID', color: iconColor }];
-    
-    iconFrame.appendChild(iconPlaceholder);
-=======
   // Tentar carregar a fonte Material Icons
   try {
     await figma.loadFontAsync({ family: "Material Icons", style: "Regular" });
@@ -1224,14 +1168,11 @@ export async function processIconComponent(node: QuasarNode, settings: PluginSet
     }
     
     iconFrame.appendChild(placeholder);
->>>>>>> 5d4088825e9d6674f10fbf743bba6c55eb1d8933
   }
   
   return iconFrame;
 }
 
-<<<<<<< HEAD
-=======
 // Função auxiliar para gerar um placeholder baseado no nome do ícone
 function getPlaceholderForIcon(iconName: string): string {
   if (!iconName) return "●";
@@ -1254,15 +1195,10 @@ function getPlaceholderForIcon(iconName: string): string {
   return iconName.charAt(0).toUpperCase() || "●";
 }
 
->>>>>>> 5d4088825e9d6674f10fbf743bba6c55eb1d8933
 // Exportar funções utilitárias para uso em outros componentes
 export {
   getIconLibrary,
   normalizeIconName,
   getIconUnicode,
   materialIconsMap
-<<<<<<< HEAD
-};
-=======
-};
->>>>>>> 5d4088825e9d6674f10fbf743bba6c55eb1d8933
+}

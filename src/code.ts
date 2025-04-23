@@ -1,11 +1,12 @@
-import { CSSProcessor } from './utils/css-processor';
+
+import { convertQuasarToFigma } from '../src/components/converter';
 import { loadRequiredFonts } from './utils/figma-utils';
 import { setupLogger, logInfo, logError } from './utils/logger.js';
 import { registerAllComponentProcessors } from './component-registry';
 import { PluginSettings } from './types/settings';
 
 // Configuração padrão do plugin
-const defaultSettings: PluginSettings = {
+export const defaultSettings: PluginSettings = {
   preserveQuasarColors: true,
   createComponentVariants: true,
   useAutoLayout: true,

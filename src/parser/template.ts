@@ -137,8 +137,6 @@ function convertToQuasarNode(node: any, context: Record<string, any>): QuasarNod
     throw new Error('Nó inválido: nulo ou indefinido');
   }
 
-
-  
   // Tratar nós de texto
   if (node.nodeType === 3) {
     return {
@@ -177,25 +175,23 @@ function convertToQuasarNode(node: any, context: Record<string, any>): QuasarNod
       }
     }
   }
-
-    // Adicionar processamento de diretivas Vue com contexto
-    if (attributes['v-if']) {
-      const condition = attributes['v-if'];
-      const isConditionMet = evaluateExpression(condition, context);
-      
-      if (!isConditionMet) {
-        // Retornar nó vazio se condição não for atendida
-        return {
-          tagName: 'empty',
-          attributes: {},
-          childNodes: []
-        };
-      }
-      
-      // Remover v-if para evitar processamento repetido
-      delete attributes['v-if'];
+  // Adicionar processamento de diretivas Vue com contexto
+  if (attributes['v-if']) {
+    const condition = attributes['v-if'];
+    const isConditionMet = evaluateVueExpression(condition, context);
+    
+    if (!isConditionMet) {
+      // Retornar nó vazio se condição não for atendida
+      return {
+        tagName: 'empty',
+        attributes: {},
+        childNodes: []
+      };
     }
-  
+    
+    // Remover v-if para evitar processamento repetido
+    delete attributes['v-if'];
+  }
   const childNodes: QuasarNode[] = [];
   if (node.childNodes && node.childNodes.length > 0) {
     node.childNodes.forEach((child: any) => {
@@ -214,12 +210,21 @@ function convertToQuasarNode(node: any, context: Record<string, any>): QuasarNod
       }
     });
   }
-  
-  if ('v-if' in attributes) {
+  // Adicionar uma conversão ou adaptação de tipos
+const componentContext: ComponentContext = {
+  props: context.props || {},
+  data: context.data || {},
+  computed: context.computed || {},
+  methods: context.methods || {}
+};
+
+  // Adicionar processamento de diretivas Vue com contexto
+  if (attributes['v-if']) {
     const condition = attributes['v-if'];
-    const isConditionMet = evaluateCondition(condition, context);
+    const isConditionMet = evaluateVueExpression(condition, context);
     
     if (!isConditionMet) {
+      // Retornar nó vazio se condição não for atendida
       return {
         tagName: 'empty',
         attributes: {},
@@ -227,9 +232,9 @@ function convertToQuasarNode(node: any, context: Record<string, any>): QuasarNod
       };
     }
     
+    // Remover v-if para evitar processamento repetido
     delete attributes['v-if'];
   }
-  
   return {
     tagName: node.tagName ? node.tagName.toLowerCase() : '#unknown',
     attributes,
