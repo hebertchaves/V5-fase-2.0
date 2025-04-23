@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body {
+      font-family: Inter, sans-serif;
+      margin: 0;
+      padding: 0;
+      color: #333;
+      background-color: #f5f5f5;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+    
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px;
+      background-color: #18A0FB;
+      color: white;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+    
+    .header h2 {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 600;
+    }
+    
+    .close-button {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: white;
+      font-size: 16px;
+    }
+    
+    .main-content {
+      padding: 16px;
+      overflow-y: auto;
+      flex-grow: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    
+    .code-input-section {
+      background-color: white;
+      border-radius: 8px;
+      padding: 16px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+    
+    .section-title {
+      font-size: 14px;
+      font-weight: 600;
+      margin: 0 0 8px 0;
+      color: #333;
+    }
+    
+    .code-input {
+      width: 100%;
+      height: 180px;
+      padding: 12px;
+      border: 1px solid #E0E0E0;
+      border-radius: 4px;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      resize: vertical;
+      box-sizing: border-box;
+    }
+    
+    .convert-button {
+      background-color: #18A0FB;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      padding: 10px 16px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background-color 0.2s;
+      align-self: center;
+      margin-top: 8px;
+    }
+    
+    .convert-button:hover {
+      background-color: #0D8EE0;
+    }
+    
+    .convert-button:disabled {
+      background-color: #ccc;
+      cursor: not-allowed;
+    }
+    
+    .feedback {
+      padding: 12px;
+      border-radius: 4px;
+      font-size: 14px;
+      display: none;
+    }
+    
+    .success {
+      background-color: #E3F7E9;
+      color: #2A823A;
+      border: 1px solid #C2E9CF;
+    }
+    
+    .error {
+      background-color: #FFEBEE;
+      color: #D32F2F;
+      border: 1px solid #FFCDD2;
+    }
+    
+    .component-preview {
+      margin-top: 16px;
+      padding: 12px;
+      border: 1px solid #eee;
+      border-radius: 4px;
+      font-size: 12px;
+      background-color: #f9f9f9;
+      min-height: 200px;
+      max-height: 400px;
+      overflow-y: auto;
+      display: none;
+      font-family: 'Courier New', monospace;
+      white-space: pre;
+    }
+    
+    .limitations-info {
+      background-color: #FFF8E1;
+      border: 1px solid #FFE082;
+      border-radius: 4px;
+      padding: 12px 16px;
+      margin-top: 16px;
+      font-size: 12px;
+    }
+    
+    .limitations-info h3 {
+      font-size: 14px;
+      margin: 0 0 8px 0;
+      color: #FF8F00;
+    }
+    
+    .limitations-info ul {
+      margin: 0;
+      padding-left: 20px;
+    }
+    
+    .limitations-info li {
+      margin-bottom: 4px;
+    }
+    
+    .spinner {
+      border: 3px solid #f3f3f3;
+      border-top: 3px solid #18A0FB;
+      border-radius: 50%;
+      width: 16px;
+      height: 16px;
+      animation: spin 1s linear infinite;
+      display: inline-block;
+      margin-right: 8px;
+      vertical-align: middle;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h2>Quasar to Figma Converter</h2>
+    <button class="close-button" id="close-button">✕</button>
+  </div>
+  
+  <div class="main-content">
+    <div class="code-input-section">
+      <div class="section-title">Código do Componente Quasar</div>
+      <textarea 
+        class="code-input" 
+        id="code-input" 
+        placeholder="Cole aqui o código Vue.js/Quasar (incluindo as seções <template> e <script>)"></textarea>
+    </div>
+    
+    <button class="convert-button" id="convert-button">Converter para Figma</button>
+    
+    <div id="feedback" class="feedback"></div>
+    
+    <div id="component-preview" class="component-preview">
+      <h3>Estrutura do componente:</h3>
+      <pre id="component-structure"></pre>
+    </div>
+    
+    <div class="limitations-info">
+      <h3>Limitações Conhecidas</h3>
+      <ul>
+        <li><strong>Comportamentos dinâmicos</strong>: Estados como hover, focus e active não podem ser totalmente representados no Figma.</li>
+        <li><strong>CSS externo</strong>: Apenas estilos inline e classes do Quasar são processados.</li>
+        <li><strong>Componentes customizados</strong>: Apenas componentes nativos do Quasar são suportados.</li>
+        <li><strong>Propriedades computadas</strong>: Props dinâmicas baseadas em lógica não são avaliadas.</li>
+        <li><strong>Slots com conteúdo dinâmico</strong>: Não é possível representar slots totalmente.</li>
+      </ul>
+    </div>
+  </div>
+  
+  <script>
+    // Elementos da UI
+    const closeButton = document.getElementById('close-button');
+    const convertButton = document.getElementById('convert-button');
+    const codeInput = document.getElementById('code-input');
+    const feedback = document.getElementById('feedback');
+    const componentPreview = document.getElementById('component-preview');
+    const componentStructure = document.getElementById('component-structure');
+    
+    // Botão fechar
+    closeButton.addEventListener('click', function() {
+      console.log('Fechando plugin');
+      parent.postMessage({
+        pluginMessage: {
+          type: 'close-plugin'
+        }
+      }, '*');
+    });
+    
+    // Configurações padrão 
+    const defaultSettings = {
+      preserveQuasarColors: true,
+      createComponentVariants: true,
+      useAutoLayout: true,
+      componentDensity: 'default',
+      colorTheme: 'quasar-default',
+      componentGroups: {
+        basic: true,
+        form: true,
+        layout: true,
+        navigation: true,
+        popup: true,
+        scrolling: true,
+        display: true,
+        other: true
+      }
+    };
+    
+    // Botão converter
+    convertButton.addEventListener('click', function() {
+      console.log('Convertendo código');
+      const code = codeInput.value.trim();
+      
+      if (!code) {
+        showFeedback('Por favor, insira o código do componente.', 'error');
+        return;
+      }
+      
+      // Verificar se o código contém a tag <template>
+      if (!code.includes('<template>')) {
+        showFeedback('O código deve conter uma seção <template>.', 'error');
+        return;
+      }
+      
+      // Desativar botão e mostrar spinner
+      convertButton.disabled = true;
+      showFeedback('<div class="spinner"></div> Convertendo o componente...');
+      
+      // Enviar o código para o script do plugin com as configurações padrão
+      parent.postMessage({
+        pluginMessage: {
+          type: 'convert-code',
+          code: code,
+          settings: defaultSettings
+        }
+      }, '*');
+    });
+    
+    // Receber mensagens do plugin
+    window.onmessage = function(event) {
+      console.log('Mensagem recebida do plugin:', event.data);
+      
+      if (!event.data.pluginMessage) {
+        console.log('Mensagem sem pluginMessage');
+        return;
+      }
+      
+      const message = event.data.pluginMessage;
+      
+      if (message.type === 'conversion-success') {
+        showFeedback('Componente convertido com sucesso!', 'success');
+        convertButton.disabled = false;
+        
+        // Mostrar estrutura do componente
+        componentStructure.textContent = message.structure || "Componente criado";
+        componentPreview.style.display = 'block';
+      } 
+      else if (message.type === 'conversion-error') {
+        showFeedback('Erro na conversão: ' + message.error, 'error');
+        componentPreview.style.display = 'none';
+        convertButton.disabled = false;
+      }
+      else if (message.type === 'processing-update') {
+        showFeedback(message.message + (message.layoutType ? ` (${message.layoutType})` : ''));
+      }
+    };
+    
+    // Mostrar feedback
+    function showFeedback(message, type) {
+      feedback.innerHTML = message;
+      feedback.style.display = 'block';
+      
+      if (type) {
+        feedback.className = 'feedback ' + type;
+      } else {
+        feedback.className = 'feedback';
+      }
+    }
+  </script>
+  <script>
+    window.onerror = function(message, source, lineno, colno, error) {
+      console.error('Erro global:', { message, source, lineno, colno, error });
+      parent.postMessage({
+        pluginMessage: {
+          type: 'error',
+          details: { message, source, lineno, colno }
+        }
+      }, '*');
+    };
+  </script>
+</body>
+</html>

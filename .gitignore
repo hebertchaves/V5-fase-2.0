@@ -1,0 +1,47 @@
+# Build e arquivos gerados
+/dist
+/node_modules
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+logs
+*.log
+
+# Arquivos do sistema operacional
+.DS_Store
+Thumbs.db
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Desktop.ini
+
+# Arquivos de ambiente e configuração local
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Arquivos de IDE e editores
+/.idea
+/.vscode
+*.sublime-project
+*.sublime-workspace
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Arquivos de dependências
+yarn.lock
+package-lock.json
+
+# Arquivos de teste
+/coverage
+
+# Arquivos temporários
+.tmp
+.temp
