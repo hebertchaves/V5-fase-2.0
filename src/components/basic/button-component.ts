@@ -28,11 +28,7 @@ function getFontSizeForButtonSize(size?: string): number {
  */
 export async function processButtonComponent(node: QuasarNode, settings: PluginSettings): Promise<FrameNode> {
   logDebug('button', `Processando botão: ${JSON.stringify(node.attributes)}`);
-<<<<<<< HEAD
-  
-=======
 
->>>>>>> 5d4088825e9d6674f10fbf743bba6c55eb1d8933
   // Criar frame principal para o q-btn
   const buttonFrame = figma.createFrame();
   buttonFrame.name = "q-btn";
@@ -126,13 +122,8 @@ export async function processButtonComponent(node: QuasarNode, settings: PluginS
     // Padding padrão
     wrapperNode.paddingLeft = 16;
     wrapperNode.paddingRight = 16;
-<<<<<<< HEAD
-    wrapperNode.paddingTop = 8;
-    wrapperNode.paddingBottom = 8;
-=======
     wrapperNode.paddingTop = 16;
     wrapperNode.paddingBottom = 16;
->>>>>>> 5d4088825e9d6674f10fbf743bba6c55eb1d8933
   }
   
   // 2. Criar o content
@@ -147,33 +138,6 @@ export async function processButtonComponent(node: QuasarNode, settings: PluginS
   contentNode.itemSpacing = 8;
   
   // 3. Processar ícones e texto
-<<<<<<< HEAD
-  
-  // Variáveis para controle de conteúdo
-  let hasLeftIcon = false;
-  let hasRightIcon = false;
-  let hasTextContent = false;
-  
-  // Verificar ícone à esquerda
-  if (props.icon) {
-    try {
-      const iconNode = {
-        tagName: 'q-icon',
-        attributes: {
-          name: props.icon,
-          color: props.color,
-          size: props.size || 'md'
-        },
-        childNodes: []
-      };
-      
-      const iconComponent = await processIconComponent(iconNode, settings);
-      contentNode.appendChild(iconComponent);
-      hasLeftIcon = true;
-      logDebug('button', `Ícone à esquerda adicionado: ${props.icon}`);
-    } catch (error) {
-      logError('button', `Erro ao adicionar ícone à esquerda: ${error}`);
-=======
   
   // Variáveis para controle de conteúdo
   let hasLeftIcon = false;
@@ -351,7 +315,6 @@ export async function processButtonComponent(node: QuasarNode, settings: PluginS
           contentNode.appendChild(textNode);
         }
       }
->>>>>>> 5d4088825e9d6674f10fbf743bba6c55eb1d8933
     }
   }
   

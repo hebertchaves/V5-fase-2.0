@@ -251,8 +251,8 @@ async function createFigmaNodeForComponent(componentName, vNode) {
       wrapperNode.fills = [{ type: 'SOLID', color: { r: 1, g: 1, b: 1 }, opacity: 0 }];
       wrapperNode.paddingLeft = 16;
       wrapperNode.paddingRight = 16;
-      wrapperNode.paddingTop = 8;
-      wrapperNode.paddingBottom = 8;
+      wrapperNode.paddingTop = 16;
+      wrapperNode.paddingBottom = 16;
       
       // Criar content
       const contentNode = figma.createFrame();

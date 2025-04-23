@@ -447,7 +447,7 @@ function applyButtonSize(node: SceneNode, size: string | null, isDense: boolean)
   
   // Valores de padding padrão
   let paddingH = 16; // Horizontal
-  let paddingV = 8;  // Vertical
+  let paddingV = 16;  // Vertical
   
   // Aplicar tamanho, se especificado
   if (size) {
