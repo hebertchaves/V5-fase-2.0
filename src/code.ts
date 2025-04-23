@@ -35,19 +35,38 @@ setupLogger('INFO');
 
 // Inicializar o plugin
 async function initializePlugin() {
-  // Carregar fontes necessárias antecipadamente - CERTIFICAR QUE ISTO OCORRE PRIMEIRO
-  await loadRequiredFonts();
-  
-  // Registrar todos os processadores de componentes
-  registerAllComponentProcessors();
-  
-  // Enviar configurações iniciais para a UI
-  figma.ui.postMessage({
-    type: 'init-settings',
-    settings: currentSettings
-  });
-  
-  logInfo('main', 'Plugin inicializado com sucesso');
+  try {
+    // Carregar fontes necessárias antecipadamente
+    const fontsLoaded = await loadRequiredFonts();
+    
+    if (!fontsLoaded) {
+      console.warn('Aviso: Não foi possível carregar todas as fontes, o plugin funcionará com recursos limitados');
+    }
+    
+    // Registrar todos os processadores de componentes
+    registerAllComponentProcessors();
+    
+    // Enviar configurações iniciais para a UI
+    figma.ui.postMessage({
+      type: 'init-settings',
+      settings: currentSettings,
+      fontsStatus: {
+        loaded: fontsLoaded,
+        availableFonts: figma.listAvailableFontsAsync
+          ? await figma.listAvailableFontsAsync()
+          : []
+      }
+    });
+    
+    logInfo('main', 'Plugin inicializado com sucesso');
+  } catch (error) {
+    console.error('Erro na inicialização do plugin:', error);
+    // Ainda envia mensagem de inicialização para a UI, mesmo com erro
+    figma.ui.postMessage({
+      type: 'init-error',
+      error: String(error)
+    });
+  }
 }
 
 // Handler para mensagens da UI

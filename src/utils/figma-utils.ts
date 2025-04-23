@@ -10,6 +10,9 @@ import { RGB, RGBA, ExtractedStyles } from '../types/settings';
 export async function loadRequiredFonts() {
   // Lista de fontes primárias e alternativas
   const fontOptions = [
+    { family: "Inter", style: "Regular" },
+    { family: "Inter", style: "Medium" },
+    { family: "Inter", style: "Bold" },
     { family: "Roboto", style: "Regular" },
     { family: "Roboto", style: "Medium" },
     { family: "Roboto", style: "Bold" },
@@ -18,119 +21,116 @@ export async function loadRequiredFonts() {
   
   // Carregando fontes com tratamento de erro
   const loadedFonts = [];
+  const fontLoadPromises = [];
   
   for (const font of fontOptions) {
     try {
-      await figma.loadFontAsync(font);
-      loadedFonts.push(font.family + " " + font.style);
-      console.log(`Fonte carregada com sucesso: ${font.family} ${font.style}`);
+      const fontPromise = figma.loadFontAsync(font)
+        .then(() => {
+          loadedFonts.push(font.family + " " + font.style);
+          console.log(`Fonte carregada com sucesso: ${font.family} ${font.style}`);
+        })
+        .catch(error => {
+          console.warn(`Falha ao carregar fonte ${font.family} ${font.style}: ${error}`);
+        });
+      
+      fontLoadPromises.push(fontPromise);
     } catch (error) {
-      console.warn(`Falha ao carregar fonte ${font.family} ${font.style}: ${error}`);
-      // Continuar com as próximas fontes
+      console.warn(`Erro ao iniciar carregamento da fonte ${font.family} ${font.style}: ${error}`);
     }
   }
   
+  // Aguardar todas as tentativas de carregamento de fontes
+  await Promise.allSettled(fontLoadPromises);
+  
   return loadedFonts.length > 0;
 }
-/**
- * Carrega a fonte Material Icons para uso nos ícones
- * @returns Promise<boolean> indicando se a fonte foi carregada com sucesso
- */
-export async function loadIconFont(): Promise<boolean> {
-  try {
-    // Tentar carregar a fonte Material Icons
-    await figma.loadFontAsync({ family: "Material Icons", style: "Regular" });
-    console.log('Fonte Material Icons carregada com sucesso');
-    return true;
-  } catch (error) {
-    console.error('Erro ao carregar fonte Material Icons:', error);
-    
-  }
-}
+
+// Melhorar a função createText com retry e fallback robustos
 export async function createText(content: string, options: any = {}): Promise<TextNode | null> {
-  try {
-    const textNode = figma.createText();
-    
-    // Determinar qual fonte usar e garantir que seja carregada
-    const fontFamily = options.fontFamily || "Roboto";
-    const fontStyle = options.fontStyle || "Regular";
+  const maxRetries = 3;
+  let attempts = 0;
+  
+  // Fontes a tentar, em ordem de preferência
+  const fontFamilies = ["Roboto", "Inter", "Arial", "Sans-Serif"];
+  const fontStyles = [options.fontWeight === 'bold' ? "Bold" : 
+                     options.fontWeight === 'medium' ? "Medium" : "Regular"];
+  
+  while (attempts < maxRetries) {
+    attempts++;
     
     try {
-      await figma.loadFontAsync({ family: fontFamily, style: fontStyle });
-    } catch (fontError) {
-      console.warn(`Não foi possível carregar a fonte ${fontFamily} ${fontStyle}, tentando alternativa:`, fontError);
-      // Tentar alternativa
-      await figma.loadFontAsync({ family: "Roboto", style: "Regular" });
-      // Atualizar as opções
-      options.fontFamily = "Roboto";
-      options.fontStyle = "Regular";
-    }
-    
-    // Definir o texto
-    textNode.characters = content || '';
-    
-    // Definir explicitamente a fonte após carregar
-    textNode.fontName = {
-      family: options.fontFamily || "Roboto",
-      style: options.fontStyle || "Regular"
-    };
-    
-    // Configurações de texto
-    if (options.fontSize) textNode.fontSize = options.fontSize;
-    if (options.fontWeight) {
-      if (options.fontWeight === 'bold') {
-        try {
-          await figma.loadFontAsync({ family: options.fontFamily || "Roboto", style: "Bold" });
-          textNode.fontName = { family: options.fontFamily || "Roboto", style: "Bold" };
-        } catch (error) {
-          console.warn('Não foi possível carregar a fonte bold:', error);
+      const textNode = figma.createText();
+      
+      // Tentar carregar a fonte atual
+      const fontFamily = fontFamilies[Math.min(attempts - 1, fontFamilies.length - 1)];
+      const fontStyle = fontStyles[0];
+      
+      await figma.loadFontAsync({
+        family: fontFamily,
+        style: fontStyle
+      });
+      
+      // Configurar o nó de texto
+      textNode.characters = content || '';
+      textNode.fontName = { family: fontFamily, style: fontStyle };
+      
+      // Aplicar configurações adicionais
+      if (options.fontSize) textNode.fontSize = options.fontSize;
+      if (options.color) {
+        textNode.fills = [{ type: 'SOLID', color: options.color }];
+      }
+      
+      // Configurações adicionais...
+      if (options.alignment) {
+        textNode.textAlignHorizontal = options.alignment;
+      }
+      
+      if (options.verticalAlignment) {
+        textNode.textAlignVertical = options.verticalAlignment;
+      }
+      
+      if (options.opacity !== undefined && textNode.fills && 
+          Array.isArray(textNode.fills) && textNode.fills.length > 0) {
+        const newFills = [];
+        for (const fill of textNode.fills) {
+          if (fill.type === 'SOLID') {
+            newFills.push({...fill, opacity: options.opacity});
+          } else {
+            newFills.push(fill);
+          }
         }
-      } else if (options.fontWeight === 'medium') {
+        textNode.fills = newFills;
+      }
+      
+      return textNode;
+    } catch (error) {
+      console.warn(`Tentativa ${attempts} de criar texto falhou:`, error);
+      
+      // Na última tentativa, criar um placeholder visual
+      if (attempts >= maxRetries) {
+        console.error('Todas as tentativas de criar texto falharam, criando placeholder:', error);
+        
         try {
-          await figma.loadFontAsync({ family: options.fontFamily || "Roboto", style: "Medium" });
-          textNode.fontName = { family: options.fontFamily || "Roboto", style: "Medium" };
-        } catch (error) {
-          console.warn('Não foi possível carregar a fonte medium:', error);
+          // Criar um frame como placeholder para texto
+          const placeholderFrame = figma.createFrame();
+          placeholderFrame.name = "text-placeholder";
+          placeholderFrame.resize(100, 24); // Tamanho padrão
+          
+          // Usar cor especificada ou padrão
+          const color = options.color || { r: 0.4, g: 0.4, b: 0.4 };
+          placeholderFrame.fills = [{ type: 'SOLID', color, opacity: 0.5 }];
+          
+          return placeholderFrame as unknown as TextNode;
+        } catch (placeholderError) {
+          console.error('Falha ao criar placeholder para texto:', placeholderError);
+          return null;
         }
       }
     }
-    
-    // Cor do texto
-    if (options.color) {
-      textNode.fills = [{ type: 'SOLID', color: options.color }];
-    }
-    
-    // Opacidade
-    if (options.opacity !== undefined && textNode.fills && Array.isArray(textNode.fills) && textNode.fills.length > 0) {
-      const newFills = [];
-      for (let i = 0; i < textNode.fills.length; i++) {
-        const fill = textNode.fills[i];
-        // Criar uma cópia do objeto fill
-        const newFill = {...fill};
-        // Definir opacidade na cópia
-        if (newFill.type === 'SOLID') {
-          newFill.opacity = options.opacity;
-        }
-        newFills.push(newFill);
-      }
-      // Atribuir os novos fills
-      textNode.fills = newFills;
-    }
-    
-    // Alinhamento
-    if (options.alignment) {
-      textNode.textAlignHorizontal = options.alignment;
-    }
-    
-    if (options.verticalAlignment) {
-      textNode.textAlignVertical = options.verticalAlignment;
-    }
-    
-    return textNode;
-  } catch (error) {
-    console.error('Erro ao criar texto:', error);
-    return null;
   }
+  
+  return null;
 }
 // Função existente que precisa ser exportada
 export function setNodeSize(node: SceneNode, width: number, height?: number) {

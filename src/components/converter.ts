@@ -14,8 +14,11 @@ import { processQuasarClass } from '../utils/style-utils';
  * Função principal de conversão, agora com processamento avançado de cores
  */
 export async function convertQuasarToFigma(code: string, settings: PluginSettings) {
-  // Carregar fontes antes de iniciar a conversão
-  await loadRequiredFonts();
+  // Garantir que as fontes sejam carregadas antes de iniciar a conversão
+  await loadRequiredFonts().catch(error => {
+    console.warn('Aviso: Erro ao carregar fontes:', error);
+    // Continuar mesmo se o carregamento de fontes falhar
+  });
   
   try {
     logInfo('converter', 'Iniciando conversão de código para Figma');
@@ -44,14 +47,107 @@ export async function convertQuasarToFigma(code: string, settings: PluginSetting
     mainFrame.paddingBottom = 20;
     mainFrame.itemSpacing = 16;
     
-    // Processar a árvore de componentes recursivamente
-    await processNodeTree(rootNode, mainFrame, settings);
+    // Processar a árvore de componentes recursivamente com tratamento de erros
+    await processNodeTreeSafely(rootNode, mainFrame, settings);
     
     logInfo('converter', 'Componente processado com sucesso');
     return mainFrame;
   } catch (error) {
     logError('converter', 'Erro ao processar componente', error);
-    throw error;
+    
+    // Retornar um frame com mensagem de erro em caso de falha
+    const errorFrame = figma.createFrame();
+    errorFrame.name = "Erro na Conversão";
+    errorFrame.resize(400, 100);
+    errorFrame.fills = [{ type: 'SOLID', color: { r: 1, g: 0.9, b: 0.9 } }];
+    
+    try {
+      const errorTextNode = figma.createText();
+      await figma.loadFontAsync({ family: "Roboto", style: "Regular" });
+      errorTextNode.characters = "Erro na conversão. Verifique o código e tente novamente.";
+      errorTextNode.fontSize = 12;
+      errorTextNode.fills = [{ type: 'SOLID', color: { r: 0.8, g: 0, b: 0 } }];
+      errorFrame.appendChild(errorTextNode);
+    } catch (textError) {
+      // Se falhar ao criar texto de erro, pelo menos retorna o frame
+      console.error('Erro ao criar texto de erro:', textError);
+    }
+    
+    return errorFrame;
+  }
+}
+
+// Nova função segura para processamento de nós
+async function processNodeTreeSafely(node: QuasarNode, parentFigmaNode: FrameNode, settings: PluginSettings): Promise<void> {
+  // Ignorar nós de texto vazios
+  if (node.tagName === '#text' && (!node.text || !node.text.trim())) {
+    return;
+  }
+  
+  try {
+    // Processar nós de texto
+    if (node.tagName === '#text' && node.text) {
+      try {
+        const textNode = await createText(node.text.trim());
+        if (textNode) {
+          parentFigmaNode.appendChild(textNode);
+        }
+      } catch (textError) {
+        console.error('Erro ao processar nó de texto:', textError);
+      }
+      return;
+    }
+    
+    // Log para debug
+    logDebug('processNode', `Processando nó: ${node.tagName}`);
+    
+    // Verificar se é um componente Quasar
+    const isQuasarComponent = node.tagName.toLowerCase().startsWith('q-');
+    let figmaNode: FrameNode | null = null;
+    let componentType: ComponentTypeInfo | undefined;
+    
+    if (isQuasarComponent) {
+      componentType = detectComponentType(node);
+      logInfo('processNode', `Componente Quasar detectado: ${componentType.category}/${componentType.type}`);
+      
+      try {
+        figmaNode = await componentService.processComponentByCategory(
+          node,
+          componentType.category,
+          componentType.type,
+          settings
+        );
+        
+        if (figmaNode && !figmaNode.getPluginData('colors_applied')) {
+          const colorAnalysis = analyzeComponentColors(node);
+          applyQuasarColors(figmaNode, colorAnalysis, componentType.type);
+          figmaNode.setPluginData('colors_applied', 'true');
+        }
+      } catch (componentError) {
+        logError('processNode', `Erro ao processar componente Quasar: ${node.tagName}`, componentError);
+        figmaNode = await processGenericComponent(node, settings);
+      }
+    } else {
+      figmaNode = await processGenericComponent(node, settings);
+    }
+    
+    // Verificar se o nó foi criado com sucesso
+    if (!figmaNode) {
+      logError('processNode', `Falha ao criar nó Figma para ${node.tagName}`);
+      return;
+    }
+    
+    // Adicionar ao nó pai
+    parentFigmaNode.appendChild(figmaNode);
+    
+    // Processar filhos recursivamente para componentes genéricos
+    if (!isQuasarComponent && node.childNodes && node.childNodes.length > 0) {
+      for (const child of node.childNodes) {
+        await processNodeTreeSafely(child, figmaNode, settings);
+      }
+    }
+  } catch (error) {
+    logError('processNode', `Erro não tratado ao processar nó ${node.tagName}:`, error);
   }
 }
 

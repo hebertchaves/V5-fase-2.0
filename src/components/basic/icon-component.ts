@@ -229,75 +229,49 @@ export async function processIconComponent(node: QuasarNode, settings: PluginSet
   iconFrame.layoutMode = "HORIZONTAL";
   iconFrame.primaryAxisAlignItems = "CENTER";
   iconFrame.counterAxisAlignItems = "CENTER";
-  iconFrame.fills = [{ type: 'SOLID', color: { r: 1, g: 1, b: 1 }, opacity: 0 }];
   
   // Extrair nome do ícone
   const iconName = props.name || "";
+  let fontLoaded = false;
   
-  // Tentamos com Material Icons ou outras fontes alternativas
+  // Tentar carregar a fonte Material Icons
   try {
-    // Primeiro tentamos Material Icons
     await figma.loadFontAsync({ family: "Material Icons", style: "Regular" });
+    fontLoaded = true;
     
     // Criar o nó de texto para o ícone
     const textNode = figma.createText();
     textNode.name = `icon-${iconName || "default"}`;
     textNode.fontSize = iconSize;
-    textNode.textAlignHorizontal = "CENTER";
-    textNode.textAlignVertical = "CENTER";
     
     // Obter o caractere Unicode do ícone
     const library = getIconLibrary(iconName);
-    const normalizedName = normalizeIconName(iconName);
-    textNode.characters = getIconUnicode(library, normalizedName);
+    textNode.characters = getIconUnicode(library, iconName);
     
     // Aplicar cor
     if (props.color && quasarColors[props.color]) {
       textNode.fills = [{ type: 'SOLID', color: quasarColors[props.color] }];
     }
     
-    // Centralizar o ícone
-    textNode.textAlignHorizontal = "CENTER";
-    textNode.textAlignVertical = "CENTER";
-    
     iconFrame.appendChild(textNode);
   } catch (error) {
-    console.log('Tentando com fonte alternativa:', error);
+    // Se falhar, criar um placeholder visual
+  }
+  
+  // Se a fonte não carregou, criar um placeholder visual
+  if (!fontLoaded) {
+    const placeholder = figma.createRectangle();
+    placeholder.name = "icon-placeholder";
+    placeholder.resize(iconSize * 0.7, iconSize * 0.7);
+    placeholder.cornerRadius = iconSize * 0.2;
     
-    try {
-      // Tentamos com Roboto como alternativa
-      await figma.loadFontAsync({ family: "Roboto", style: "Regular" });
-      
-      const textNode = figma.createText();
-      textNode.name = `icon-fallback-${iconName || "default"}`;
-      textNode.fontSize = iconSize;
-      textNode.characters = getPlaceholderForIcon(iconName);
-      
-      if (props.color && quasarColors[props.color]) {
-        textNode.fills = [{ type: 'SOLID', color: quasarColors[props.color] }];
-      }
-      
-      textNode.textAlignHorizontal = "CENTER";
-      textNode.textAlignVertical = "CENTER";
-      
-      iconFrame.appendChild(textNode);
-    } catch (fallbackError) {
-      console.error('Fallback também falhou, usando retângulo:', fallbackError);
-      
-      // Se todas as fontes falharem, usamos um placeholder visual
-      const placeholder = figma.createRectangle();
-      placeholder.name = "icon-placeholder";
-      placeholder.resize(iconSize * 0.8, iconSize * 0.8);
-      placeholder.cornerRadius = iconSize * 0.2;
-      
-      if (props.color && quasarColors[props.color]) {
-        placeholder.fills = [{ type: 'SOLID', color: quasarColors[props.color] }];
-      } else {
-        placeholder.fills = [{ type: 'SOLID', color: { r: 0.5, g: 0.5, b: 0.5 } }];
-      }
-      
-      iconFrame.appendChild(placeholder);
+    if (props.color && quasarColors[props.color]) {
+      placeholder.fills = [{ type: 'SOLID', color: quasarColors[props.color] }];
+    } else {
+      placeholder.fills = [{ type: 'SOLID', color: { r: 0.5, g: 0.5, b: 0.5 } }];
     }
+    
+    iconFrame.appendChild(placeholder);
   }
   
   return iconFrame;

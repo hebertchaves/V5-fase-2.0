@@ -7,21 +7,7 @@ import { analyzeComponentColors, applyQuasarColors } from '../../utils/color-uti
 import { processIconComponent } from './icon-component';
 import { logDebug, logError } from '../../utils/logger.js';
 
-/**
- * Retorna o tamanho de fonte adequado para um botão baseado no tamanho
- */
-function getFontSizeForButtonSize(size?: string): number {
-  if (!size) return 14; // tamanho padrão
-  
-  switch (size) {
-    case 'xs': return 12;
-    case 'sm': return 13;
-    case 'md': return 14;
-    case 'lg': return 16;
-    case 'xl': return 18;
-    default: return 14;
-  }
-}
+
 
 /**
  * Processa um componente de botão Quasar (q-btn)
@@ -272,6 +258,24 @@ export async function processButtonComponent(node: QuasarNode, settings: PluginS
       }
     }
   }
+
+  /**
+ * Retorna o tamanho de fonte adequado para um botão baseado no tamanho
+ * @param size Tamanho do botão (xs, sm, md, lg, xl)
+ * @returns Tamanho da fonte em pixels
+ */
+function getFontSizeForButtonSize(size?: string): number {
+  if (!size) return 14; // tamanho padrão
+  
+  switch (size) {
+    case 'xs': return 12;
+    case 'sm': return 13;
+    case 'md': return 14;
+    case 'lg': return 16;
+    case 'xl': return 18;
+    default: return 14;
+  }
+}
   
   // Verificar texto do botão
   const buttonText = props.label || getButtonText(node);
