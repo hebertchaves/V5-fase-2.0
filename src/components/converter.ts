@@ -14,11 +14,21 @@ import { processQuasarClass } from '../utils/style-utils';
  * Função principal de conversão, agora com processamento avançado de cores
  */
 export async function convertQuasarToFigma(code: string, settings: PluginSettings) {
-  // Garantir que as fontes sejam carregadas antes de iniciar a conversão
-  await loadRequiredFonts().catch(error => {
-    console.warn('Aviso: Erro ao carregar fontes:', error);
-    // Continuar mesmo se o carregamento de fontes falhar
-  });
+  // CORREÇÃO: Garantir que as fontes são carregadas corretamente antes de iniciar a conversão
+  try {
+    // Primeira tentativa: carregar fontes explicitamente
+    await loadRequiredFonts();
+    logInfo('converter', 'Fontes carregadas com sucesso');
+  } catch (fontError) {
+    console.warn('Aviso: Erro ao carregar fontes:', fontError);
+    // Tentar carregar pelo menos as fontes básicas
+    try {
+      await figma.loadFontAsync({ family: "Roboto", style: "Regular" });
+      logInfo('converter', 'Fonte básica Roboto carregada como fallback');
+    } catch (basicFontError) {
+      console.error('Erro crítico: Não foi possível carregar nem mesmo as fontes básicas:', basicFontError);
+    }
+  }
   
   try {
     logInfo('converter', 'Iniciando conversão de código para Figma');
@@ -47,33 +57,14 @@ export async function convertQuasarToFigma(code: string, settings: PluginSetting
     mainFrame.paddingBottom = 20;
     mainFrame.itemSpacing = 16;
     
-    // Processar a árvore de componentes recursivamente com tratamento de erros
-    await processNodeTreeSafely(rootNode, mainFrame, settings);
+    // Processar a árvore de componentes recursivamente
+    await processNodeTree(rootNode, mainFrame, settings);
     
     logInfo('converter', 'Componente processado com sucesso');
     return mainFrame;
   } catch (error) {
     logError('converter', 'Erro ao processar componente', error);
-    
-    // Retornar um frame com mensagem de erro em caso de falha
-    const errorFrame = figma.createFrame();
-    errorFrame.name = "Erro na Conversão";
-    errorFrame.resize(400, 100);
-    errorFrame.fills = [{ type: 'SOLID', color: { r: 1, g: 0.9, b: 0.9 } }];
-    
-    try {
-      const errorTextNode = figma.createText();
-      await figma.loadFontAsync({ family: "Roboto", style: "Regular" });
-      errorTextNode.characters = "Erro na conversão. Verifique o código e tente novamente.";
-      errorTextNode.fontSize = 12;
-      errorTextNode.fills = [{ type: 'SOLID', color: { r: 0.8, g: 0, b: 0 } }];
-      errorFrame.appendChild(errorTextNode);
-    } catch (textError) {
-      // Se falhar ao criar texto de erro, pelo menos retorna o frame
-      console.error('Erro ao criar texto de erro:', textError);
-    }
-    
-    return errorFrame;
+    throw error;
   }
 }
 

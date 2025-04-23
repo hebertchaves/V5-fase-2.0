@@ -8,40 +8,67 @@ import { RGB, RGBA, ExtractedStyles } from '../types/settings';
  * Carrega as fontes necessárias para uso no Figma
  */
 export async function loadRequiredFonts() {
-  // Lista de fontes primárias e alternativas
+  // Lista de fontes primárias e alternativas, priorizando Material Icons
   const fontOptions = [
-    { family: "Inter", style: "Regular" },
-    { family: "Inter", style: "Medium" },
-    { family: "Inter", style: "Bold" },
+    // Primeiro carregar as fontes de ícones - prioridade alta
+    { family: "Material Icons", style: "Regular" },
+    { family: "Material Icons Outlined", style: "Regular" },
+    { family: "Material Symbols Outlined", style: "Regular" },
+    
+    // Depois carregar as fontes de texto - prioridade média
     { family: "Roboto", style: "Regular" },
     { family: "Roboto", style: "Medium" },
     { family: "Roboto", style: "Bold" },
-    { family: "Material Icons", style: "Regular" }
+    
+    // Fontes alternativas - prioridade baixa
+    { family: "Inter", style: "Regular" },
+    { family: "Inter", style: "Medium" },
+    { family: "Inter", style: "Bold" },
+    { family: "Arial", style: "Regular" },
+    { family: "San Francisco", style: "Regular" },
+    { family: "Helvetica", style: "Regular" }
   ];
   
   // Carregando fontes com tratamento de erro
   const loadedFonts = [];
-  const fontLoadPromises = [];
   
-  for (const font of fontOptions) {
+  // Primeira tentativa: carregar as fontes de alta prioridade (ícones)
+  for (let i = 0; i < 3; i++) {
     try {
-      const fontPromise = figma.loadFontAsync(font)
+      await figma.loadFontAsync(fontOptions[i]);
+      loadedFonts.push(fontOptions[i].family + " " + fontOptions[i].style);
+      console.log(`Fonte de ícones carregada com sucesso: ${fontOptions[i].family} ${fontOptions[i].style}`);
+    } catch (error) {
+      console.warn(`Falha ao carregar fonte de ícones ${fontOptions[i].family} ${fontOptions[i].style}: ${error}`);
+    }
+  }
+  
+  // Segunda tentativa: carregar as outras fontes
+  const fontLoadPromises = [];
+  for (let i = 3; i < fontOptions.length; i++) {
+    try {
+      const fontPromise = figma.loadFontAsync(fontOptions[i])
         .then(() => {
-          loadedFonts.push(font.family + " " + font.style);
-          console.log(`Fonte carregada com sucesso: ${font.family} ${font.style}`);
+          loadedFonts.push(fontOptions[i].family + " " + fontOptions[i].style);
+          console.log(`Fonte carregada com sucesso: ${fontOptions[i].family} ${fontOptions[i].style}`);
         })
         .catch(error => {
-          console.warn(`Falha ao carregar fonte ${font.family} ${font.style}: ${error}`);
+          console.warn(`Falha ao carregar fonte ${fontOptions[i].family} ${fontOptions[i].style}: ${error}`);
         });
       
       fontLoadPromises.push(fontPromise);
     } catch (error) {
-      console.warn(`Erro ao iniciar carregamento da fonte ${font.family} ${font.style}: ${error}`);
+      console.warn(`Erro ao iniciar carregamento da fonte ${fontOptions[i].family} ${fontOptions[i].style}: ${error}`);
     }
   }
   
-  // Aguardar todas as tentativas de carregamento de fontes
+  // Aguardar todas as tentativas de carregamento de fontes regulares
   await Promise.allSettled(fontLoadPromises);
+  
+  // Se nenhuma fonte de ícones for carregada, emitir aviso mais claro
+  if (!loadedFonts.some(font => font.includes("Material Icons") || font.includes("Material Symbols"))) {
+    console.warn('AVISO: Nenhuma fonte de ícones foi carregada. Os ícones serão exibidos como placeholders.');
+  }
   
   return loadedFonts.length > 0;
 }
@@ -52,7 +79,7 @@ export async function createText(content: string, options: any = {}): Promise<Te
   let attempts = 0;
   
   // Fontes a tentar, em ordem de preferência
-  const fontFamilies = ["Roboto", "Inter", "Arial", "Sans-Serif"];
+  const fontFamilies = ["Material Icons", "Roboto", "Inter", "Arial", "Sans-Serif"];
   const fontStyles = [options.fontWeight === 'bold' ? "Bold" : 
                      options.fontWeight === 'medium' ? "Medium" : "Regular"];
   
