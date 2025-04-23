@@ -73,28 +73,26 @@ async function processNodeTree(node: QuasarNode, parentFigmaNode: FrameNode, set
     }
   }
   
-  // Processar nós de texto - CORRIGIDO
+  // Processar nós de texto
   if (node.tagName === '#text' && node.text) {
     try {
-      const textNode = await createText(node.text.trim());
-      if (textNode) {
-        parentFigmaNode.appendChild(textNode);
-      }
+      // PRIMEIRO carregar a fonte - é fundamental fazer isso antes de qualquer operação
+      await figma.loadFontAsync({ family: "Roboto", style: "Regular" });
+      
+      // DEPOIS criar o nó de texto
+      const textNode = figma.createText();
+      
+      // Definir a fonte explicitamente
+      textNode.fontName = { family: "Roboto", style: "Regular" };
+      
+      // Definir o texto
+      textNode.characters = node.text.trim();
+      
+      // Adicionar ao pai
+      parentFigmaNode.appendChild(textNode);
       return;
     } catch (error) {
-      logError('processNode', `Erro ao criar nó de texto: ${error}`);
-      // Continue com a lógica de fallback abaixo em caso de erro
-      
-      // Fallback para texto em caso de erro na função createText
-      try {
-        const fallbackText = figma.createText();
-        await figma.loadFontAsync({ family: "Roboto", style: "Regular" });
-        fallbackText.characters = node.text.trim();
-        parentFigmaNode.appendChild(fallbackText);
-        return;
-      } catch (fallbackError) {
-        logError('processNode', `Erro no fallback de texto: ${fallbackError}`);
-      }
+      console.error('Erro ao criar nó de texto:', error);
     }
   }
   

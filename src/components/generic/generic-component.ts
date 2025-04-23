@@ -23,6 +23,7 @@ export async function processGenericComponent(node: QuasarNode, settings: Plugin
       // Tente usar Roboto em vez de Inter, já que Roboto é carregada no início do plugin
       await figma.loadFontAsync({ family: "Roboto", style: "Medium" });
       const headerText = figma.createText();
+      headerText.fontName = { family: "Roboto", style: "Medium" }; // Definir explicitamente
       headerText.characters = `Componente ${node.tagName}`;
       headerText.fontSize = 16;
       headerText.fills = [{ type: 'SOLID', color: { r: 0.4, g: 0.4, b: 0.4 } }];
@@ -33,12 +34,12 @@ export async function processGenericComponent(node: QuasarNode, settings: Plugin
       if (node.attributes && Object.keys(node.attributes).length > 0) {
         await figma.loadFontAsync({ family: "Roboto", style: "Regular" });
         const attrsText = figma.createText();
-        
+        attrsText.fontName = { family: "Roboto", style: "Regular" }; // Definir explicitamente
         const attrStr = Object.entries(node.attributes)
           .filter(([key, _]) => key !== 'style' && key !== 'class')
           .map(([key, value]) => `${key}="${value}"`)
           .join('\n');
-        
+
         attrsText.characters = attrStr || "Sem atributos";
         attrsText.fontSize = 12;
         attrsText.fills = [{ type: 'SOLID', color: { r: 0.6, g: 0.6, b: 0.6 } }];
