@@ -13,6 +13,7 @@ import { processPopupComponents } from './components/popup/popup-components';
 import { processDisplayComponents } from './components/display/display-components';
 import { processOtherComponents } from './components/other/other-components';
 import { processScrollingComponents } from './components/scrolling/scrolling-components';
+import { processListComponent } from './components/display/list-component';
 
 /**
  * Registra todos os processadores de componentes no serviço
@@ -25,6 +26,13 @@ export function registerAllComponentProcessors() {
   componentService.registerProcessor('genericComponent', processGenericComponent);
   componentService.registerProcessor('buttonProcessor', processButtonComponent);
   componentService.registerProcessor('cardProcessor', processCardComponent);
+  componentService.registerProcessor('listProcessor', processListComponent);
+
+  // Registrar tipos de componentes
+  componentService.registerComponentType('q-list', 'display');
+  componentService.registerComponentType('q-item', 'display');
+  componentService.registerComponentType('q-item-section', 'display');
+  componentService.registerComponentType('q-item-label', 'display');
   
   // Processadores por categoria
   componentService.registerProcessor('basicProcessor', (node, type, settings) => {

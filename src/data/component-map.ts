@@ -9,6 +9,7 @@ export interface ComponentProperties {
 // Mapeamento de componentes Quasar para propriedades Figma
 export const quasarComponentMap: Record<string, ComponentProperties> = {
   // COMPONENTES DE FORMULÁRIO
+  
   'q-btn': {
     type: 'FRAME',
     properties: {

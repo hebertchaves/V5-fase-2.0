@@ -6,15 +6,6 @@ import { RGB, RGBA, ExtractedStyles } from '../types/settings';
  * Carrega a fonte Material Icons para uso nos ícones
  * @returns Promise<boolean> indicando se a fonte foi carregada com sucesso
  */
-<<<<<<< HEAD
-export async function loadRequiredFonts() {
-  // Lista de fontes usadas pelo plugin
-  const requiredFonts = [
-    { family: "Inter", style: "Regular" },
-    { family: "Inter", style: "Medium" },
-    { family: "Inter", style: "Bold" },
-    { family: "Material Icons", style: "Regular" },
-=======
 export async function loadIconFont(): Promise<boolean> {
   try {
     // Tentar carregar a fonte Material Icons
@@ -42,24 +33,13 @@ export async function loadIconFont(): Promise<boolean> {
 export async function loadRequiredFonts() {
   // Lista de fontes primárias e alternativas
   const fontOptions = [
-    
     { family: "Material Icons", style: "Regular" },
     { family: "Material Symbols Outlined", style: "Regular" },
->>>>>>> 5d4088825e9d6674f10fbf743bba6c55eb1d8933
     { family: "Roboto", style: "Regular" },
     { family: "Roboto", style: "Medium" },
     { family: "Roboto", style: "Bold" }
   ];
   
-<<<<<<< HEAD
-  // Carregar todas as fontes em paralelo
-  const fontLoadPromises = requiredFonts.map(font => 
-    figma.loadFontAsync(font)
-  );
-  
-  // Aguardar o carregamento de todas as fontes
-  await Promise.all(fontLoadPromises);
-=======
   // Carregando fontes com tratamento de erro
   const loadedFonts = [];
   
@@ -75,7 +55,6 @@ export async function loadRequiredFonts() {
   }
   
   return loadedFonts.length > 0;
->>>>>>> 5d4088825e9d6674f10fbf743bba6c55eb1d8933
 }
 
 export async function createText(content: string, options: any = {}): Promise<TextNode | null> {

@@ -1,5 +1,4 @@
 import { QuasarNode, ComponentTypeInfo } from '../types/settings';
-import { cssColorToFigmaColor } from './style-utils';
 
 /**
  * Verifica se um nó tem um pai específico

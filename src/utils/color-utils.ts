@@ -214,6 +214,7 @@ export function applyQuasarColors(
   analysis: ReturnType<typeof analyzeComponentColors>,
   componentType: string
 ): void {
+  
   // Aplicar cores de acordo com o tipo de componente
   switch (componentType) {
     case 'btn':
@@ -231,6 +232,22 @@ export function applyQuasarColors(
   // Marcar o nó como tendo cores aplicadas
   if ('setPluginData' in node) {
     node.setPluginData('colors_applied', 'true');
+  }
+  
+  // Aplicar cores com base no contexto parental
+  if (node.parentContext) {
+    const parentTag = node.parentContext.tagName;
+    const parentAttributes = node.parentContext.attributes || {};
+    
+    // Ajustar cores para elementos dentro de componentes com cores específicas
+    if (parentTag === 'q-btn' && parentAttributes.color) {
+      const parentColor = getQuasarColor(parentAttributes.color);
+      
+      if (parentColor && node.type === 'TEXT') {
+        // Texto em botões deve contrastar com a cor do botão
+        node.fills = [{ type: 'SOLID', color: getContrastingTextColor(parentColor) }];
+      }
+    }
   }
 }
 

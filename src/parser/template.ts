@@ -14,19 +14,6 @@ export async function enhancedParseQuasarTemplate(code: string): Promise<QuasarN
 }
 
 /**
- * Extrai o conteúdo do template de um componente Vue
- */
-export function extractTemplateContent(code: string): string {
-  const templateMatch = code.match(/<template>([\s\S]*?)<\/template>/);
-  
-  if (!templateMatch) {
-    throw new Error("Não foi possível encontrar a seção <template> no código");
-  }
-  
-  return templateMatch[1].trim();
-}
-
-/**
  * Analisa um template HTML e retorna uma árvore de nós Quasar
  */
 export function parseQuasarTemplate(html: string, contextData?: Record<string, any>): QuasarNode {
@@ -150,23 +137,7 @@ function convertToQuasarNode(node: any, context: Record<string, any>): QuasarNod
     throw new Error('Nó inválido: nulo ou indefinido');
   }
 
-  // Adicionar processamento de diretivas Vue com contexto
-  if (attributes['v-if']) {
-    const condition = attributes['v-if'];
-    const isConditionMet = evaluateExpression(condition, context);
-    
-    if (!isConditionMet) {
-      // Retornar nó vazio se condição não for atendida
-      return {
-        tagName: 'empty',
-        attributes: {},
-        childNodes: []
-      };
-    }
-    
-    // Remover v-if para evitar processamento repetido
-    delete attributes['v-if'];
-  }
+
   
   // Tratar nós de texto
   if (node.nodeType === 3) {
@@ -206,6 +177,24 @@ function convertToQuasarNode(node: any, context: Record<string, any>): QuasarNod
       }
     }
   }
+
+    // Adicionar processamento de diretivas Vue com contexto
+    if (attributes['v-if']) {
+      const condition = attributes['v-if'];
+      const isConditionMet = evaluateExpression(condition, context);
+      
+      if (!isConditionMet) {
+        // Retornar nó vazio se condição não for atendida
+        return {
+          tagName: 'empty',
+          attributes: {},
+          childNodes: []
+        };
+      }
+      
+      // Remover v-if para evitar processamento repetido
+      delete attributes['v-if'];
+    }
   
   const childNodes: QuasarNode[] = [];
   if (node.childNodes && node.childNodes.length > 0) {

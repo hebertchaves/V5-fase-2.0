@@ -18,18 +18,23 @@ async function checkMaterialIconsAvailability(): Promise<boolean> {
  * Carrega a fonte Material Icons para uso nos ícones
  * Retorna true se a carga foi bem-sucedida
  */
-<<<<<<< HEAD
-export async function loadIconFonts(): Promise<boolean> {
-=======
 export async function loadIconFont(): Promise<boolean> {
->>>>>>> 5d4088825e9d6674f10fbf743bba6c55eb1d8933
   try {
     await figma.loadFontAsync({ family: "Material Icons", style: "Regular" });
     console.log('Fonte Material Icons carregada com sucesso');
     return true;
   } catch (error) {
     console.error('Erro ao carregar fonte Material Icons:', error);
-    return false;
+    
+    // Tentar fontes alternativas
+    try {
+      await figma.loadFontAsync({ family: "Roboto", style: "Regular" });
+      console.log('Fonte Roboto carregada como alternativa');
+      return true;
+    } catch (innerError) {
+      console.error('Erro ao carregar fontes alternativas:', innerError);
+      return false;
+    }
   }
 }
 
@@ -70,11 +75,7 @@ export async function createIconNode(
   
   try {
     // Tentar criar um nó de texto com o ícone Unicode
-<<<<<<< HEAD
-    await loadIconFonts();
-=======
     await loadIconFont();
->>>>>>> 5d4088825e9d6674f10fbf743bba6c55eb1d8933
     
     const textNode = figma.createText();
     textNode.name = `icon-${normalizedName}`;
@@ -120,24 +121,6 @@ export async function createIconNode(
 export function getIconLibrary(iconName: string): string {
   if (!iconName) return 'material';
   
-<<<<<<< HEAD
-  if (iconName.startsWith('fa-') || iconName.startsWith('fas ') || 
-      iconName.startsWith('far ') || iconName.startsWith('fab ')) {
-    return 'fontawesome';
-  } else if (iconName.startsWith('ion-')) {
-    return 'ionicons';
-  } else if (iconName.startsWith('eva-')) {
-    return 'eva';
-  } else if (iconName.startsWith('ti-')) {
-    return 'themify';
-  } else if (iconName.startsWith('la-')) {
-    return 'lineawesome';
-  } else if (iconName.startsWith('mdi-')) {
-    return 'mdi';
-  } else {
-    return 'material'; // Padrão do Quasar
-  }
-=======
   // Detecção baseada em prefixos
   if (iconName.startsWith('fa-') || 
       iconName.startsWith('fas ') || 
@@ -163,7 +146,6 @@ export function getIconLibrary(iconName: string): string {
   }
   // Material Icons é o padrão do Quasar
   return 'material';
->>>>>>> 5d4088825e9d6674f10fbf743bba6c55eb1d8933
 }
 
 /**
@@ -190,17 +172,6 @@ export function normalizeIconName(iconName: string): string {
  * Mapeia o nome do ícone para o caractere Unicode
  */
 export function getIconUnicode(library: string, iconName: string): string {
-<<<<<<< HEAD
-  // Para Material Design Icons
-  if (library === 'material' && materialIconsMap[iconName]) {
-    return materialIconsMap[iconName];
-  }
-  
-  // Para outras bibliotecas, adicionar mapeamentos conforme necessário
-  
-  // Fallback para um ícone genérico
-  return '\uE5CC'; // dots_horizontal como fallback
-=======
   if (!iconName) return '\uE5CD'; // default icon (close)
   
   // Normalizar o nome do ícone (remover prefixos se houver)
@@ -1173,7 +1144,6 @@ export function getIconUnicode(library: string, iconName: string): string {
   // Se tudo falhar, retornar um ícone genérico, mas fazer log para depuração
   console.warn(`Ícone não encontrado: ${iconName} (normalizado: ${normalizedName}), usando fallback`);
   return '\uE250'; // ícone genérico (info)
->>>>>>> 5d4088825e9d6674f10fbf743bba6c55eb1d8933
 }
 
 /**

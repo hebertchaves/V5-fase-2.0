@@ -1,11 +1,12 @@
-// src/components/display/list-component.ts
+// Novo arquivo: src/components/display/list-component.ts
+
 import { QuasarNode, PluginSettings } from '../../types/settings';
-import { extractStylesAndProps, findChildrenByTagName } from '../../utils/quasar-utils';
+import { extractStylesAndProps } from '../../utils/quasar-utils';
 import { applyStylesToFigmaNode, createText } from '../../utils/figma-utils';
 import { quasarColors } from '../../data/color-map';
 
 /**
- * Processa um componente de lista Quasar (q-list)
+ * Processa um componente lista (q-list) do Quasar
  */
 export async function processListComponent(node: QuasarNode, settings: PluginSettings): Promise<FrameNode> {
   const listFrame = figma.createFrame();
@@ -15,55 +16,23 @@ export async function processListComponent(node: QuasarNode, settings: PluginSet
   listFrame.layoutMode = "VERTICAL";
   listFrame.primaryAxisSizingMode = "AUTO";
   listFrame.counterAxisSizingMode = "AUTO";
-  listFrame.itemSpacing = 0;
+  listFrame.itemSpacing = 0; // Sem espaçamento entre itens
   listFrame.fills = [{ type: 'SOLID', color: { r: 1, g: 1, b: 1 } }];
   
   // Extrair propriedades e estilos
   const { props, styles } = extractStylesAndProps(node);
   
-  // Configurações com base em props
-  if (props.bordered === 'true' || props.bordered === '') {
-    listFrame.strokes = [{ type: 'SOLID', color: { r: 0.9, g: 0.9, b: 0.9 } }];
-    listFrame.strokeWeight = 1;
-  }
-  
-  if (props.separator === 'true' || props.separator === '') {
-    // Os separadores serão adicionados entre os itens
-  }
-  
-  // Processar itens da lista
-  const itemNodes = findChildrenByTagName(node, 'q-item');
-  
-  // Se não houver itens, criar alguns de exemplo
-  if (itemNodes.length === 0) {
-    const exampleItems = ['Item 1', 'Item 2', 'Item 3'];
-    
-    for (let i = 0; i < exampleItems.length; i++) {
-      const itemFrame = await createListItem(exampleItems[i], i, settings);
-      listFrame.appendChild(itemFrame);
+  // Processar filhos (q-item)
+  for (const child of node.childNodes) {
+    if (child.tagName && child.tagName.toLowerCase() === 'q-item') {
+      const itemComponent = await processListItem(child, settings);
+      listFrame.appendChild(itemComponent);
       
-      // Adicionar separador, exceto após o último item
-      if (i < exampleItems.length - 1 && (props.separator === 'true' || props.separator === '')) {
+      // Adicionar separador se necessário
+      if (props.separator === 'true' || props.separator === '') {
         const separator = figma.createRectangle();
         separator.name = "q-separator";
-        separator.resize(300, 1);
-        separator.fills = [{ type: 'SOLID', color: { r: 0.9, g: 0.9, b: 0.9 } }];
-        listFrame.appendChild(separator);
-      }
-    }
-  } else {
-    for (let i = 0; i < itemNodes.length; i++) {
-      const itemNode = itemNodes[i];
-      
-      // Processar item da lista
-      const itemFrame = await processListItem(itemNode, i, settings);
-      listFrame.appendChild(itemFrame);
-      
-      // Adicionar separador, exceto após o último item
-      if (i < itemNodes.length - 1 && (props.separator === 'true' || props.separator === '')) {
-        const separator = figma.createRectangle();
-        separator.name = "q-separator";
-        separator.resize(300, 1);
+        separator.resize(listFrame.width, 1);
         separator.fills = [{ type: 'SOLID', color: { r: 0.9, g: 0.9, b: 0.9 } }];
         listFrame.appendChild(separator);
       }
@@ -76,9 +45,9 @@ export async function processListComponent(node: QuasarNode, settings: PluginSet
 /**
  * Processa um item de lista (q-item)
  */
-async function processListItem(node: QuasarNode, index: number, settings: PluginSettings): Promise<FrameNode> {
+async function processListItem(node: QuasarNode, settings: PluginSettings): Promise<FrameNode> {
   const itemFrame = figma.createFrame();
-  itemFrame.name = `q-item-${index + 1}`;
+  itemFrame.name = "q-item";
   
   // Configuração básica
   itemFrame.layoutMode = "HORIZONTAL";
@@ -88,118 +57,137 @@ async function processListItem(node: QuasarNode, index: number, settings: Plugin
   itemFrame.paddingRight = 16;
   itemFrame.paddingTop = 12;
   itemFrame.paddingBottom = 12;
+  itemFrame.primaryAxisAlignItems = "SPACE_BETWEEN";
+  itemFrame.counterAxisAlignItems = "CENTER";
   itemFrame.fills = [{ type: 'SOLID', color: { r: 1, g: 1, b: 1 } }];
   
   // Extrair propriedades e estilos
   const { props, styles } = extractStylesAndProps(node);
   
-  // Verificar se o item é clicável
-  if (props.clickable === 'true' || props.clickable === '') {
-    itemFrame.effects = [{
-      type: 'DROP_SHADOW',
-      color: { r: 0, g: 0, b: 0, a: 0.05 },
-      offset: { x: 0, y: 1 },
-      radius: 2,
-      visible: true,
-      blendMode: 'NORMAL'
-    }];
+  // Processar seções do item (q-item-section)
+  for (const child of node.childNodes) {
+    if (child.tagName && child.tagName.toLowerCase() === 'q-item-section') {
+      const sectionComponent = await processItemSection(child, settings);
+      itemFrame.appendChild(sectionComponent);
+    }
   }
   
-  // Verificar se há sections
-  const sectionNodes = findChildrenByTagName(node, 'q-item-section');
-  
-  if (sectionNodes.length === 0) {
-    // Se não houver seções, criar um texto genérico
-    const textNode = await createText(`Item ${index + 1}`, {
-      fontSize: 14
-    });
-    
-    itemFrame.appendChild(textNode);
-  } else {
-    // Processar cada seção
-    for (const sectionNode of sectionNodes) {
-      const sectionProps = extractStylesAndProps(sectionNode).props;
-      
-      const sectionFrame = figma.createFrame();
-      sectionFrame.name = "q-item-section";
-      sectionFrame.layoutMode = "VERTICAL";
-      sectionFrame.primaryAxisSizingMode = "AUTO";
-      sectionFrame.counterAxisSizingMode = "AUTO";
-      sectionFrame.fills = [{ type: 'SOLID', color: { r: 1, g: 1, b: 1 }, opacity: 0 }];
-      sectionFrame.itemSpacing = 4;
-      
-      // Verificar o tipo da seção
-      if (sectionProps.avatar === 'true' || sectionProps.avatar === '') {
-        // Seção de avatar
-        const avatarFrame = figma.createFrame();
-        avatarFrame.name = "q-item-section__avatar";
-        avatarFrame.resize(40, 40);
-        avatarFrame.cornerRadius = 20;  // Circular
-        avatarFrame.fills = [{ type: 'SOLID', color: { r: 0.9, g: 0.9, b: 0.9 } }];
-        
-        sectionFrame.appendChild(avatarFrame);
-      } else if (sectionProps.thumbnail === 'true' || sectionProps.thumbnail === '') {
-        // Seção de thumbnail
-        const thumbnailFrame = figma.createFrame();
-        thumbnailFrame.name = "q-item-section__thumbnail";
-        thumbnailFrame.resize(40, 40);
-        thumbnailFrame.fills = [{ type: 'SOLID', color: { r: 0.9, g: 0.9, b: 0.9 } }];
-        
-        sectionFrame.appendChild(thumbnailFrame);
-      } else {
-        // Seção principal ou lado
-        let text = "";
-        
-        // Tentar extrair texto
-        for (const child of sectionNode.childNodes) {
-          if (child.text) {
-            text += child.text.trim() + " ";
-          }
-        }
-        
-        text = text.trim();
-        
-        if (!text) {
-          text = sectionProps.side ? "Side" : `Content ${index + 1}`;
-        }
-        
-        const textNode = await createText(text, {
-          fontSize: 14
-        });
-        
-        sectionFrame.appendChild(textNode);
-      }
-      
-      itemFrame.appendChild(sectionFrame);
+  // Se não houver seções, adicionar conteúdo padrão
+  if (itemFrame.children.length === 0) {
+    const textNode = await createText("Item");
+    if (textNode) {
+      itemFrame.appendChild(textNode);
     }
+  }
+  
+  // Verificar se o item é clicável
+  if (props.clickable === 'true' || props.clickable === '') {
+    // Adicionar efeito de hover (não é realmente aplicado no Figma, mas para documentação)
+    itemFrame.name = "q-item (clickable)";
   }
   
   return itemFrame;
 }
 
 /**
- * Cria um item de lista genérico
+ * Processa uma seção de item (q-item-section)
  */
-async function createListItem(text: string, index: number, settings: PluginSettings): Promise<FrameNode> {
-  const itemFrame = figma.createFrame();
-  itemFrame.name = `q-item-${index + 1}`;
+async function processItemSection(node: QuasarNode, settings: PluginSettings): Promise<FrameNode> {
+  const sectionFrame = figma.createFrame();
+  sectionFrame.name = "q-item-section";
   
   // Configuração básica
-  itemFrame.layoutMode = "HORIZONTAL";
-  itemFrame.primaryAxisSizingMode = "AUTO";
-  itemFrame.counterAxisSizingMode = "AUTO";
-  itemFrame.paddingLeft = 16;
-  itemFrame.paddingRight = 16;
-  itemFrame.paddingTop = 12;
-  itemFrame.paddingBottom = 12;
-  itemFrame.fills = [{ type: 'SOLID', color: { r: 1, g: 1, b: 1 } }];
+  sectionFrame.layoutMode = "VERTICAL";
+  sectionFrame.primaryAxisSizingMode = "AUTO";
+  sectionFrame.counterAxisSizingMode = "AUTO";
+  sectionFrame.itemSpacing = 4;
+  sectionFrame.fills = [{ type: 'SOLID', color: { r: 1, g: 1, b: 1 }, opacity: 0 }];
   
-  // Criar texto
-  const textNode = await createText(text, {
+  // Extrair propriedades e estilos
+  const { props, styles } = extractStylesAndProps(node);
+  
+  // Verificar se é uma seção de avatar
+  if (props.avatar === 'true' || props.avatar === '') {
+    sectionFrame.name = "q-item-section--avatar";
+    sectionFrame.resize(56, 56);
+    sectionFrame.primaryAxisAlignItems = "CENTER";
+    sectionFrame.counterAxisAlignItems = "CENTER";
+    
+    // Criar placeholder para avatar
+    const avatarPlaceholder = figma.createEllipse();
+    avatarPlaceholder.name = "avatar-placeholder";
+    avatarPlaceholder.resize(40, 40);
+    avatarPlaceholder.fills = [{ type: 'SOLID', color: { r: 0.8, g: 0.8, b: 0.8 } }];
+    
+    sectionFrame.appendChild(avatarPlaceholder);
+    return sectionFrame;
+  }
+  
+  // Processar filhos
+  for (const child of node.childNodes) {
+    if (child.tagName === '#text' && child.text) {
+      // Texto direto
+      const textNode = await createText(child.text.trim());
+      if (textNode) {
+        sectionFrame.appendChild(textNode);
+      }
+    } else if (child.tagName) {
+      // Processar label e caption especialmente
+      if (child.tagName.toLowerCase() === 'q-item-label') {
+        const labelComponent = await processItemLabel(child, settings);
+        sectionFrame.appendChild(labelComponent);
+      } else {
+        // Outros componentes filhos podem ser processados genericamente
+        // Aqui você pode chamar o processador genérico ou implementar lógica específica
+      }
+    }
+  }
+  
+  return sectionFrame;
+}
+
+/**
+ * Processa um label de item (q-item-label)
+ */
+async function processItemLabel(node: QuasarNode, settings: PluginSettings): Promise<TextNode> {
+  // Extrair propriedades e estilos
+  const { props, styles } = extractStylesAndProps(node);
+  
+  // Extrair texto
+  let labelText = "";
+  for (const child of node.childNodes) {
+    if (child.text) {
+      labelText += child.text.trim() + " ";
+    }
+  }
+  labelText = labelText.trim() || "Label";
+  
+  // Criar nó de texto
+  const textOptions: any = {
     fontSize: 14
-  });
+  };
   
-  itemFrame.appendChild(textNode);
+  // Verificar se é caption
+  if (props.caption === 'true' || props.caption === '') {
+    textOptions.fontSize = 12;
+    textOptions.color = { r: 0.6, g: 0.6, b: 0.6 };
+  }
   
-  return itemFrame;
+  // Verificar se é header
+  if (props.header === 'true' || props.header === '') {
+    textOptions.fontSize = 16;
+    textOptions.fontWeight = 'medium';
+  }
+  
+  // Verificar se é overline
+  if (props.overline === 'true' || props.overline === '') {
+    textOptions.fontSize = 12;
+    textOptions.letterSpacing = 1;
+    textOptions.textTransform = 'uppercase';
+  }
+  
+  const textNode = await createText(labelText, textOptions);
+  textNode.name = "q-item-label";
+  
+  return textNode;
 }

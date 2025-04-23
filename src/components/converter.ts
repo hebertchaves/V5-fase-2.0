@@ -1,12 +1,13 @@
 // src/components/converter.ts
 import { parseQuasarTemplate, extractTemplateContent } from '../parser/template';
-import { loadRequiredFonts,applyStylesToFigmaNode } from '../utils/figma-utils';
-import { PluginSettings, QuasarNode } from '../types/settings';
+import { loadRequiredFonts,applyStylesToFigmaNode, extractInlineStyles } from '../utils/figma-utils';
+import { PluginSettings, QuasarNode, ComponentTypeInfo } from '../types/settings';
 import { detectComponentType } from '../utils/quasar-utils';
 import { componentService } from '../utils/component-service';
 import { analyzeComponentColors, colorAnalysisToFigmaProps, applyQuasarColors } from '../utils/color-utils';
 import { logInfo, logError, logDebug } from '../utils/logger';
 import { processQuasarClass } from '../utils/style-utils';
+
 
 
 /**
@@ -110,7 +111,20 @@ async function processNodeTree(node: QuasarNode, parentFigmaNode: FrameNode, set
     figmaNode = await processGenericComponent(node, settings);
   }
   
-  
+  // Processamento específico para componentes de layout
+  if (isQuasarComponent && componentType.category === 'layout') {
+    // Adicionar contexto aos filhos para que saibam que estão dentro de um componente de layout
+    for (const childNode of node.childNodes) {
+      if (childNode.tagName && childNode.tagName !== '#text') {
+        childNode.parentContext = {
+          tagName: node.tagName,
+          attributes: node.attributes,
+          isPrimaryComponent: true
+        };
+      }
+    }
+  }
+
   // Adicionar ao nó pai
   parentFigmaNode.appendChild(figmaNode);
   
@@ -228,49 +242,4 @@ export async function processGenericComponent(node: QuasarNode, settings: Plugin
   }
   
   return frame;
-}
-
-/**
- * Função principal de conversão, agora com processamento avançado de cores
- */
-export async function convertQuasarToFigma(code: string, settings: PluginSettings) {
-  // Carregar fontes antes de iniciar a conversão
-  await loadRequiredFonts();
-  
-  try {
-    logInfo('converter', 'Iniciando conversão de código para Figma');
-    
-    // Extrair o template
-    const templateContent = extractTemplateContent(code);
-    logDebug('converter', 'Template extraído com sucesso');
-    
-    // Parse do template para árvore de nós
-    const rootNode = parseQuasarTemplate(templateContent);
-    if (!rootNode) {
-      throw new Error('Falha ao analisar o template HTML');
-    }
-    logDebug('converter', `Árvore de nós criada com sucesso, nó raiz: ${rootNode.tagName}`);
-    
-    // Criar o nó raiz do Figma
-    const mainFrame = figma.createFrame();
-    mainFrame.name = "Componente Quasar";
-    mainFrame.layoutMode = "VERTICAL";
-    mainFrame.primaryAxisSizingMode = "AUTO";
-    mainFrame.counterAxisSizingMode = "AUTO";
-    mainFrame.fills = [{ type: 'SOLID', color: { r: 1, g: 1, b: 1 } }];
-    mainFrame.paddingLeft = 20;
-    mainFrame.paddingRight = 20;
-    mainFrame.paddingTop = 20;
-    mainFrame.paddingBottom = 20;
-    mainFrame.itemSpacing = 16;
-    
-    // Processar a árvore de componentes recursivamente
-    await processNodeTree(rootNode, mainFrame, settings);
-    
-    logInfo('converter', 'Componente processado com sucesso');
-    return mainFrame;
-  } catch (error) {
-    logError('converter', 'Erro ao processar componente', error);
-    throw error;
-  }
 }
