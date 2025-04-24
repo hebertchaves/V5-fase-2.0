@@ -6,74 +6,44 @@ import quasarCssClasses, { processQuasarDynamicClass } from '../data/quasar-css-
  * Processa uma classe do Quasar para extrair valores de estilo
  */
 export function processQuasarClass(className: string): Record<string, any> | null {
-  // Primeiro, verifica se é uma classe padrão do Quasar
-  if (quasarCssClasses[className]) {
-    return quasarCssClasses[className];
+  // Mostrar debug da classe sendo processada
+  console.log(`Processando classe: ${className}`);
+  
+  // Classes de espaçamento (q-pa-*, q-ma-*)
+  if (className.match(/^q-([mp])([atrblxy])?-([a-z]+)$/)) {
+    const result = processSpacingClass(className);
+    console.log(`Resultado para ${className}:`, result);
+    return result;
   }
+
+  // Classes de espaçamento entre itens (q-gutter-*)
+  if (className.match(/^q-gutter-([xy])?-?([a-z]+)$/)) {
+    const result = processGutterClass(className);
+    console.log(`Resultado para ${className}:`, result);
+    return result;
+  }
+  
+  // Verificar se é uma classe estática
   const staticClass = quasarCssClasses[className];
   if (staticClass) {
+    console.log(`Encontrado estilo estático para ${className}:`, staticClass);
     return staticClass;
   }
   
   // Se não for uma classe estática, tenta processar como classe dinâmica
   const dynamicResult = processQuasarDynamicClass(className);
   if (dynamicResult) {
+    console.log(`Encontrado estilo dinâmico para ${className}:`, dynamicResult);
     return dynamicResult;
   }
-  // Classes de espaçamento (q-pa-*, q-ma-*)
-  if (className.match(/^q-([mp])([atrblxy])?-([a-z]+)$/)) {
-    return processSpacingClass(className);
-  }
-
-    // Expandir para incluir mais classes do Quasar
-    if (className.startsWith('full-')) {
-      return processFullDimensionClass(className);
-    }
-    
-    if (className.startsWith('rounded-')) {
-      return processRoundedClass(className);
-    }
-
-  // Adicionar suporte para classes de gutter
-  if (className.match(/^q-gutter-([a-z]+)$/)) {
-    return processGutterClass(className);
-  }
   
-  // Classes de texto (text-h1, text-caption, etc)
-  if (className.match(/^text-([a-h][1-6]|body[12]|subtitle[12]|caption|overline)$/)) {
-    return processTextClass(className);
-  }
+  // Adicionar mais processamentos específicos aqui
   
-  // Classes de cor de fundo (bg-primary, bg-red-5, etc)
-  if (className.match(/^bg-([a-z]+)(\-\d+)?$/)) {
-    return processColorClass(className, 'background');
-  }
-  
-  // Classes de cor de texto (text-primary, text-red-5, etc)
-  if (className.match(/^text-([a-z]+)(\-\d+)?$/) && 
-      !className.match(/^text-([a-h][1-6]|body[12]|subtitle[12]|caption|overline)$/)) {
-    return processColorClass(className, 'text');
-  }
-  
-  // Classes flexbox (row, column, etc)
-  if (['row', 'column', 'items-start', 'items-center', 'items-end',
-       'justify-start', 'justify-center', 'justify-end', 'justify-between'].includes(className)) {
-    return processFlexboxClass(className);
-  }
-  
-  // Classes de alinhamento de texto
-  if (['text-left', 'text-center', 'text-right', 'text-justify'].includes(className)) {
-    return processTextAlignmentClass(className);
-  }
-  
-  // Classes de visibilidade e display
-  if (className.match(/^(hidden|visible|invisible|display-none|display-block|display-inline|display-inline-block)$/)) {
-    return processVisibilityClass(className);
-  }
-  
-  // Outras classes não implementadas
+  // Não foi possível processar a classe
+  console.log(`Não foi possível processar a classe: ${className}`);
   return null;
 }
+
 // Adicionar a função parseFontSize que estava faltando
 function parseFontSize(value: string): number {
   const match = value.match(/^(\d+(?:\.\d+)?)(px|rem|em)?$/);
@@ -138,13 +108,17 @@ export function extractInlineStyles(styleString: string): ExtractedStyles {
   return styles;
 }
 
-// Adicionar nova função para processar classes de gutter
+/**
+ * Processa classes de espaçamento entre itens (gutter)
+ */
 function processGutterClass(className: string): Record<string, any> | null {
-  const match = className.match(/^q-gutter-([a-z]+)$/);
+  const match = className.match(/^q-gutter-([xy])?-?([a-z]+)$/);
   if (!match) return null;
   
-  const [, size] = match;
-  const gutterSizes: Record<string, number> = {
+  const [, direction, size] = match;
+  
+  // Mapear tamanhos para valores em pixels
+  const sizeValues: Record<string, number> = {
     'none': 0,
     'xs': 4,
     'sm': 8,
@@ -153,8 +127,18 @@ function processGutterClass(className: string): Record<string, any> | null {
     'xl': 32
   };
   
-  const gutterValue = gutterSizes[size] || 16;
-  return { itemSpacing: gutterValue };
+  const sizeValue = sizeValues[size] || 16;
+  
+  // No Figma, isso corresponde ao itemSpacing
+  if (!direction) {
+    return { itemSpacing: sizeValue };
+  } else if (direction === 'x') {
+    return { itemSpacingX: sizeValue }; // Não suportado diretamente no Figma
+  } else if (direction === 'y') {
+    return { itemSpacingY: sizeValue }; // Não suportado diretamente no Figma
+  }
+  
+  return { itemSpacing: sizeValue };
 }
 
 // Nova função para processar classes de visibilidade
@@ -197,54 +181,51 @@ function processSpacingClass(className: string): Record<string, number> | null {
   const result: Record<string, number> = {};
   
   // Aplicar em todas as direções
-  if (type === 'm') {
-    // Margins
-    if (!direction || direction === 'a') {
-      result.marginTop = sizeValue;
-      result.marginRight = sizeValue;
-      result.marginBottom = sizeValue;
-      result.marginLeft = sizeValue;
-      return result;
-    }
-    
-    // Direções específicas para margin
-    if (direction === 't' || direction === 'y') {
-      result.marginTop = sizeValue;
-    }
-    if (direction === 'r' || direction === 'x') {
-      result.marginRight = sizeValue;
-    }
-    if (direction === 'b' || direction === 'y') {
-      result.marginBottom = sizeValue;
-    }
-    if (direction === 'l' || direction === 'x') {
-      result.marginLeft = sizeValue;
-    }
-  } else {
-    // Paddings
+  if (type === 'p') { // Padding
     if (!direction || direction === 'a') {
       result.paddingTop = sizeValue;
       result.paddingRight = sizeValue;
       result.paddingBottom = sizeValue;
       result.paddingLeft = sizeValue;
-      return result;
+    } else {
+      // Direções específicas para padding
+      if (direction === 't' || direction === 'y') {
+        result.paddingTop = sizeValue;
+      }
+      if (direction === 'r' || direction === 'x') {
+        result.paddingRight = sizeValue;
+      }
+      if (direction === 'b' || direction === 'y') {
+        result.paddingBottom = sizeValue;
+      }
+      if (direction === 'l' || direction === 'x') {
+        result.paddingLeft = sizeValue;
+      }
     }
-    
-    // Direções específicas para padding
-    if (direction === 't' || direction === 'y') {
-      result.paddingTop = sizeValue;
-    }
-    if (direction === 'r' || direction === 'x') {
-      result.paddingRight = sizeValue;
-    }
-    if (direction === 'b' || direction === 'y') {
-      result.paddingBottom = sizeValue;
-    }
-    if (direction === 'l' || direction === 'x') {
-      result.paddingLeft = sizeValue;
+  } else { // Margin - no Figma implementamos como padding do container
+    if (!direction || direction === 'a') {
+      result.marginTop = sizeValue;
+      result.marginRight = sizeValue;
+      result.marginBottom = sizeValue;
+      result.marginLeft = sizeValue;
+    } else {
+      // Direções específicas para margin
+      if (direction === 't' || direction === 'y') {
+        result.marginTop = sizeValue;
+      }
+      if (direction === 'r' || direction === 'x') {
+        result.marginRight = sizeValue;
+      }
+      if (direction === 'b' || direction === 'y') {
+        result.marginBottom = sizeValue;
+      }
+      if (direction === 'l' || direction === 'x') {
+        result.marginLeft = sizeValue;
+      }
     }
   }
   
+  console.log(`Resultado para ${className}:`, result);
   return result;
 }
 

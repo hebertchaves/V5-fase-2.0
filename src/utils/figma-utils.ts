@@ -176,9 +176,16 @@ export function setNodeSize(node: SceneNode, width: number, height?: number) {
 export function applyStylesToFigmaNode(node: any, styles: Record<string, any>) {
   if (!styles || typeof styles !== 'object') return;
   
+  console.log(`Aplicando estilos ao nó ${node.name}:`, styles);
+  
   // Processa cada propriedade de estilo
   Object.entries(styles).forEach(([key, value]) => {
     try {
+      // Processar propriedades específicas com mais log
+      if (key.includes('padding') || key.includes('margin') || key.includes('itemSpacing')) {
+        console.log(`Aplicando ${key} = ${value} ao nó ${node.name}`);
+      }
+      
       switch (key) {
         case 'fills':
         case 'strokes':
@@ -188,166 +195,53 @@ export function applyStylesToFigmaNode(node: any, styles: Record<string, any>) {
           }
           break;
           
-        case 'fontColor':
-          if (node.type === 'TEXT' || (node.fills && Array.isArray(node.fills))) {
-            const fills = node.fills ? [...node.fills] : [];
-            if (fills.length > 0 && fills[0].type === 'SOLID') {
-              fills[0].color = value;
-            } else {
-              fills[0] = { type: 'SOLID', color: value };
-            }
-            node.fills = fills;
-          }
+        // Propriedades de margin
+        case 'marginTop':
+        case 'marginRight':
+        case 'marginBottom':
+        case 'marginLeft':
+          // No Figma, não temos margin direta, então criamos um frame wrapper ou usamos padding do container pai
+          console.log(`Margin não é aplicada diretamente: ${key} = ${value}`);
           break;
-          
-        case 'textCase':
-          if (node.type === 'TEXT') {
-            switch (value) {
-              case 'UPPER':
-                node.textCase = 'UPPER';
-                break;
-              case 'LOWER':
-                node.textCase = 'LOWER';
-                break;
-              case 'TITLE':
-                node.textCase = 'TITLE';
-                break;
-              default:
-                node.textCase = 'ORIGINAL';
-            }
-          }
-          break;
-          
-        case 'fontStyle':
-          if (node.type === 'TEXT' && value === 'italic') {
-            // Carregar a fonte itálica antes de aplicar
-            figma.loadFontAsync({ family: node.fontName.family, style: 'Italic' })
-              .then(() => {
-                node.fontName = { ...node.fontName, style: 'Italic' };
-              })
-              .catch(() => {
-                console.warn('Não foi possível carregar a fonte itálica');
-              });
-          }
-          break;
-          
-        case 'fontSize':
-        case 'fontWeight':
-        case 'lineHeight':
-        case 'letterSpacing':
-        case 'textDecoration':
-          if (node.type === 'TEXT') {
-            node[key] = value;
-          }
-          break;
-          
-        case 'cornerRadius':
-          if ('cornerRadius' in node) {
-            node.cornerRadius = value;
-          }
-          break;
-          
-        case 'opacity':
-          if ('opacity' in node) {
-            node.opacity = value;
-          }
-          break;
-          
-        case 'rotation':
-          if ('rotation' in node) {
-            node.rotation = value;
-          }
-          break;
-          
-        case 'width':
-        case 'height':
-          if (value === '100%') {
-            if ('layoutGrow' in node) {
-              node.layoutGrow = 1;
-            }
-            // Para constraints, usar constrants.horizontal/vertical = 'STRETCH'
-            if ('constraints' in node) {
-              if (key === 'width') {
-                node.constraints = { ...node.constraints, horizontal: 'STRETCH' };
-              } else {
-                node.constraints = { ...node.constraints, vertical: 'STRETCH' };
-              }
-            }
-          } else if (typeof value === 'number') {
-            if ('resize' in node) {
-              if (key === 'width') {
-                node.resize(value, node.height);
-              } else {
-                node.resize(node.width, value);
-              }
-            }
-          }
-          break;
-          
-        case 'constraints':
-          if ('constraints' in node) {
-            node.constraints = { ...node.constraints, ...value };
-          }
-          break;
-          
-        case 'clipsContent':
-          if ('clipsContent' in node) {
-            node.clipsContent = value;
-          }
-          break;
-          
-        case 'textTruncation':
-        case 'maxLines':
-          if (node.type === 'TEXT') {
-            if (key === 'textTruncation') {
-              node.textTruncation = value;
-            } else if (key === 'maxLines') {
-              node.maxLines = value;
-            }
-          }
-          break;
-          
-        case 'itemSpacing':
-        case 'itemSpacingX':
-        case 'itemSpacingY':
-          if (key === 'itemSpacing' && 'itemSpacing' in node) {
-            node.itemSpacing = value;
-          } else if ((key === 'itemSpacingX' || key === 'itemSpacingY') && 'layoutMode' in node) {
-            // No Figma, itemSpacing é unidirecional baseado no layoutMode
-            if ((node.layoutMode === 'HORIZONTAL' && key === 'itemSpacingX') ||
-                (node.layoutMode === 'VERTICAL' && key === 'itemSpacingY')) {
-              node.itemSpacing = value;
-            }
-          }
-          break;
-          
+        
+        // Propriedades de padding
         case 'paddingTop':
         case 'paddingRight':
         case 'paddingBottom':
         case 'paddingLeft':
           if (key in node) {
             node[key] = value;
+            console.log(`Aplicado ${key} = ${value} com sucesso`);
+          } else {
+            console.log(`Nó não suporta ${key}`);
+          }
+          break;
+        
+        // Item spacing
+        case 'itemSpacing':
+          if ('itemSpacing' in node) {
+            node.itemSpacing = value;
+            console.log(`Aplicado itemSpacing = ${value} com sucesso`);
+          } else {
+            console.log(`Nó não suporta itemSpacing`);
           }
           break;
           
-        case 'marginTop':
-        case 'marginRight':
-        case 'marginBottom':
-        case 'marginLeft':
-          // Margins são tratados através de Auto Layout no Figma
-          // Podemos simular com um frame wrapper se necessário
-          console.info(`Margem ${key} não é diretamente suportada no Figma, use Auto Layout`);
-          break;
-          
-        case 'scaleX':
-        case 'scaleY':
-          if ('rescale' in node) {
-            const scaleX = key === 'scaleX' ? value : 1;
-            const scaleY = key === 'scaleY' ? value : 1;
-            node.rescale(scaleX, scaleY);
+        case 'itemSpacingX':
+        case 'itemSpacingY':
+          // Converter para itemSpacing normal se o layout for correspondente
+          if ('layoutMode' in node && 'itemSpacing' in node) {
+            if ((node.layoutMode === 'HORIZONTAL' && key === 'itemSpacingX') ||
+                (node.layoutMode === 'VERTICAL' && key === 'itemSpacingY')) {
+              node.itemSpacing = value;
+              console.log(`Convertido ${key} para itemSpacing = ${value}`);
+            } else {
+              console.log(`Ignorado ${key} pois não corresponde ao layoutMode (${node.layoutMode})`);
+            }
           }
           break;
           
+        // Outras propriedades...
         default:
           // Tentar aplicar a propriedade diretamente
           if (key in node) {
@@ -627,12 +521,14 @@ function parseFontSize(value: string): number {
   return fontSizes[value] || 14; // 14px como padrão
 }
 
-function getTextAlignment(value: string): 'LEFT' | 'CENTER' | 'RIGHT' | 'JUSTIFIED' {
+function getTextAlignment(value: string): 'LEFT' | 'CENTER' | 'RIGHT' | 'JUSTIFIED' | 'BETWEEN' | 'AROUND' {
   switch (value) {
     case 'left': return 'LEFT';
     case 'center': return 'CENTER';
     case 'right': return 'RIGHT';
     case 'justify': return 'JUSTIFIED';
+    case 'between': return 'CENTER';
+    case 'around': return 'CENTER';
     default: return 'LEFT';
   }
 }

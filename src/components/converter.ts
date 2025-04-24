@@ -242,42 +242,38 @@ export async function processGenericComponent(node: QuasarNode, settings: Plugin
   frame.counterAxisSizingMode = "AUTO";
   frame.fills = [{ type: 'SOLID', color: { r: 1, g: 1, b: 1 }, opacity: 0 }];
 
-  // Processar classes de forma mais robusta
+  // Processar estilos de forma mais robusta
   if (node.attributes) {
+    console.log(`Processando atributos para nó ${node.tagName}:`, node.attributes);
+    
     // Processar classes primeiro (para garantir a ordem correta de aplicação)
     if (node.attributes.class) {
       const classes = node.attributes.class.split(/\s+/).filter(c => c);
+      console.log(`Classes encontradas: ${classes.join(", ")}`);
       
-      // Ordenar classes para aplicar na ordem correta (layout > spacing > cores > tipografia > outros)
-      const sortedClasses = classes.sort((a, b) => {
-        const order = ['row', 'column', 'q-pa-', 'q-ma-', 'q-gutter-', 'text-', 'bg-'];
-        const getOrder = (className: string) => {
-          for (let i = 0; i < order.length; i++) {
-            if (className.startsWith(order[i])) return i;
-          }
-          return order.length;
-        };
-        return getOrder(a) - getOrder(b);
-      });
-      
-      for (const className of sortedClasses) {
+      // Aplicar cada classe individualmente
+      for (const className of classes) {
+        console.log(`Processando classe: ${className}`);
         const classStyles = processQuasarClass(className);
         if (classStyles) {
-          // Para texto, garantir que as propriedades são aplicadas apenas em nós de texto
-          if (className.startsWith('text-') && node.tagName === '#text') {
-            applyStylesToFigmaNode(frame, classStyles);
-          } else if (!className.startsWith('text-') || node.tagName !== '#text') {
-            applyStylesToFigmaNode(frame, classStyles);
-          }
+          console.log(`Estilos para classe ${className}:`, classStyles);
+          applyStylesToFigmaNode(frame, classStyles);
+        } else {
+          console.log(`Nenhum estilo encontrado para classe ${className}`);
         }
       }
+      
+      // Adicionar o nome da classe ao nome do frame
+      frame.name = `${node.tagName} (${node.attributes.class})`;
     }
-  }
+    
     // Processar style attribute
     if (node.attributes.style) {
+      console.log(`Processando estilo inline: ${node.attributes.style}`);
       const styles = extractInlineStyles(node.attributes.style);
       applyStylesToFigmaNode(frame, styles);
     }
+  }
     // Analisar configurações de cor
     if (node.attributes) {
     const colorAnalysis = analyzeComponentColors(node);

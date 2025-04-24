@@ -195,6 +195,8 @@ export const quasarCssClasses: Record<string, any> = {
   'text-overline': { fontSize: 10, fontWeight: 500, letterSpacing: 1.5, textTransform: 'uppercase' },
   
   // TIPOGRAFIA - Alinhamento
+  'left': { textAlignHorizontal: 'LEFT' },
+  'right': { textAlignHorizontal: 'RIGHT' },
   'text-left': { textAlignHorizontal: 'LEFT' },
   'text-center': { textAlignHorizontal: 'CENTER' },
   'text-right': { textAlignHorizontal: 'RIGHT' },

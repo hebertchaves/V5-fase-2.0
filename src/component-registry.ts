@@ -15,6 +15,7 @@ import { processOtherComponents } from './components/other/other-components';
 import { processScrollingComponents } from './components/scrolling/scrolling-components';
 import { processListComponent } from './components/display/list-component';
 import { processAvatarComponent } from './components/basic/avatar-component';
+import { processIconComponent } from './components/basic/icon-component';
 
 /**
  * Registra todos os processadores de componentes no serviço
@@ -29,6 +30,7 @@ export function registerAllComponentProcessors() {
   componentService.registerProcessor('cardProcessor', processCardComponent);
   componentService.registerProcessor('listProcessor', processListComponent);
   componentService.registerProcessor('avatarProcessor', processAvatarComponent);
+  componentService.registerProcessor('iconProcessor', processIconComponent);
 
   // Registrar tipos de componentes
   componentService.registerComponentType('q-list', 'display');
@@ -36,6 +38,7 @@ export function registerAllComponentProcessors() {
   componentService.registerComponentType('q-item-section', 'display');
   componentService.registerComponentType('q-item-label', 'display');
   componentService.registerComponentType('q-avatar', 'basic');
+  componentService.registerComponentType('q-icon', 'basic');
   // Processadores por categoria
   componentService.registerProcessor('basicProcessor', (node, type, settings) => {
     switch (type) {
@@ -45,8 +48,8 @@ export function registerAllComponentProcessors() {
         return processGenericComponent(node, settings);
     }
   });
+  componentService.registerProcessor('iconProcessor', processIconComponent);
   componentService.registerProcessor('avatarProcessor', processAvatarComponent);
-  componentService.registerComponentType('q-avatar', 'basic');
   componentService.registerProcessor('formProcessor', processFormComponents);
   componentService.registerProcessor('layoutProcessor', processLayoutComponents);
   componentService.registerProcessor('navigationProcessor', processNavigationComponents);

@@ -214,7 +214,7 @@ export class EnhancedTemplateParser {
     if (lowerName.includes('height')) return 'auto';
     
     // Ícones
-    if (lowerName.includes('icon')) return '';
+    if (lowerName.includes('icon')) return 'icon';
     
     // Outros casos comuns em componentes Quasar
     if (lowerName === 'dense') return false;
