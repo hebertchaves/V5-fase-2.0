@@ -2,10 +2,10 @@
 import { QuasarNode, PluginSettings } from '../../types/settings';
 import { extractStylesAndProps, getButtonText } from '../../utils/quasar-utils';
 import {  createText } from '../../utils/figma-utils';
-import { componentService } from '../../utils/component-service';
+import {  logDebug } from '../../utils/logger';
 import { analyzeComponentColors, applyQuasarColors } from '../../utils/color-utils';
 import { processIconComponent } from './icon-component';
-import { logDebug, logError } from '../../utils/logger.js';
+import { processAvatarComponent } from '../basic/avatar-component';
 
 
 /**
@@ -28,13 +28,25 @@ function getFontSizeForButtonSize(size?: string): number {
  * Processa um componente de botão Quasar (q-btn)
  */
 export async function processButtonComponent(node: QuasarNode, settings: PluginSettings): Promise<FrameNode> {
+  
   logDebug('button', `Processando botão: ${JSON.stringify(node.attributes)}`);
+  // Extrair propriedades e estilos
+  const { props, styles } = extractStylesAndProps(node);
+
+   // NOVO: Verificar explicitamente a classe full-width
+   const hasFullWidth = node.attributes?.class?.includes('full-width');
 
   // Criar frame principal para o q-btn
   const buttonFrame = figma.createFrame();
   buttonFrame.name = "q-btn";
+  buttonFrame.layoutMode = "HORIZONTAL";
+  buttonFrame.primaryAxisSizingMode = hasFullWidth ? "FILL" : "AUTO"; // <-- MODIFICAÇÃO AQUI
+  buttonFrame.counterAxisSizingMode = "AUTO";
+  buttonFrame.primaryAxisAlignItems = "CENTER";
+  buttonFrame.counterAxisAlignItems = "CENTER";
+  buttonFrame.cornerRadius = 4;
   
-  // Configuração básica do botão
+  // Configuração básica do botão (código original)
   buttonFrame.layoutMode = "HORIZONTAL";
   buttonFrame.primaryAxisSizingMode = "AUTO";
   buttonFrame.counterAxisSizingMode = "AUTO";
@@ -42,8 +54,13 @@ export async function processButtonComponent(node: QuasarNode, settings: PluginS
   buttonFrame.counterAxisAlignItems = "CENTER";
   buttonFrame.cornerRadius = 4;
   
-  // Extrair propriedades e estilos
-  const { props, styles } = extractStylesAndProps(node);
+  // NOVO: Se tiver full-width, garantir que a largura seja corretamente configurada
+  if (hasFullWidth) {
+    // Configurar constraints para garantir que o botão preencha o contêiner
+    if ('constraints' in buttonFrame) {
+      buttonFrame.constraints = { ...buttonFrame.constraints, horizontal: 'STRETCH' };
+    }
+  }
  
   // Analisar configurações de cor do componente
   const colorAnalysis = analyzeComponentColors(node);
@@ -58,7 +75,7 @@ export async function processButtonComponent(node: QuasarNode, settings: PluginS
   wrapperNode.counterAxisAlignItems = "CENTER";
   wrapperNode.fills = [{ type: 'SOLID', color: { r: 1, g: 1, b: 1 }, opacity: 0 }];
   
-  // Ajustar padding com base nas propriedades
+  // Ajustar padding com base nas propriedades (código original)
   if (props.dense === 'true' || props.dense === '') {
     wrapperNode.paddingLeft = 8;
     wrapperNode.paddingRight = 8;
@@ -117,51 +134,12 @@ export async function processButtonComponent(node: QuasarNode, settings: PluginS
   contentNode.fills = [{ type: 'SOLID', color: { r: 1, g: 1, b: 1 }, opacity: 0 }];
   contentNode.itemSpacing = 8;
   
-  // 3. Processar ícones e texto
+  // AQUI COMEÇA A MODIFICAÇÃO: Usando uma abordagem mais controlada
+  // Variáveis para controlar o que já foi processado
+  let hasIcon = false;
+  let hasText = false;
   
-  // Variáveis para controle de conteúdo
-  let hasLeftIcon = false;
-  let hasRightIcon = false;
-  let hasContent = false;
-  let hasTextContent = false;
-  
-  // Verificar ícone à esquerda
-  if (props.icon) {
-    try {
-      // Criar um nó de ícone a partir do nome
-      const iconNode: QuasarNode = {
-        tagName: 'q-icon',
-        attributes: {
-          name: props.icon,
-          color: props.color || 'white',
-          size: props.size || 'md',
-          left: 'true'
-        },
-        childNodes: [],
-        parentContext: {
-          tagName: 'q-btn',
-          attributes: node.attributes,
-          isPrimaryComponent: true
-        }
-      };
-      
-      const iconComponent = await processIconComponent(iconNode, settings);
-      
-      // Processar tamanho do ícone
-      const iconSize = getFontSizeForButtonSize(props.size) * 1.2;
-      if ('resize' in iconComponent) {
-        iconComponent.resize(Math.round(iconSize), Math.round(iconSize));
-      }
-      
-      contentNode.insertChild(0, iconComponent);
-      hasLeftIcon = true;
-      hasContent = true;
-    } catch (error) {
-      console.error(`Erro ao processar ícone à esquerda: ${error}`);
-    }
-  }
-  
-  // PRIMEIRO: Processar ícones especificados por atributos
+  // PASSO 1: Processar ícone via atributo (icon e icon-right)
   if (props.icon) {
     try {
       // Criar um nó de ícone a partir do nome
@@ -181,209 +159,192 @@ export async function processButtonComponent(node: QuasarNode, settings: PluginS
       };
       
       const iconComponent = await processIconComponent(iconNode, settings);
-      contentNode.insertChild(0, iconComponent); // Adicionar no início do conteúdo
-      hasLeftIcon = true;
+      contentNode.insertChild(0, iconComponent);
+      hasIcon = true;
     } catch (error) {
       console.error(`Erro ao processar ícone à esquerda: ${error}`);
     }
   }
   
-  // Verificar ícone à direita
-  if (props['icon-right']) {
+  // PASSO 2: Processar label via atributo
+  if (props.label) {
     try {
-      const iconNode: QuasarNode = {
-        tagName: 'q-icon',
-        attributes: {
-          name: props['icon-right'],
-          color: props.color || 'white',
-          size: props.dense ? 'sm' : props.size || 'md'
-        },
-        childNodes: [],
-        parentContext: {
-          tagName: 'q-btn',
-          attributes: node.attributes,
-          isPrimaryComponent: true
-        }
-      };
+      const labelNode = await createText(props.label, {
+        fontSize: getFontSizeForButtonSize(props.size),
+        fontWeight: 'medium'
+      });
       
-      const iconComponent = await processIconComponent(iconNode, settings);
-      contentNode.appendChild(iconComponent); // Adicionar no final do conteúdo
-      hasRightIcon = true;
+      if (labelNode) {
+        contentNode.appendChild(labelNode);
+        hasText = true;
+      }
     } catch (error) {
-      console.error(`Erro ao processar ícone à direita: ${error}`);
+      console.error(`Erro ao processar label: ${error}`);
     }
   }
   
-  // SEGUNDO: Processar o Label primeiro se existir
-  if (props.label && props.label.trim()) {
-    const textNode = await createText(props.label.trim(), {
-      fontWeight: 'medium',
-      fontSize: getFontSizeForButtonSize(props.size)
-    });
+  // PASSO 3: Se não há label, processar nós filhos
+  if (!hasText) {
+    // Função recursiva para encontrar todos os ícones em um nó
+    const findIcons = (node: QuasarNode): Array<QuasarNode> => {
+      const icons: Array<QuasarNode> = [];
+      
+      if (node.tagName === 'q-icon') {
+        icons.push(node);
+      } else if (node.childNodes && node.childNodes.length > 0) {
+        for (const child of node.childNodes) {
+          icons.push(...findIcons(child));
+        }
+      }
+      
+      return icons;
+    };
     
-    if (textNode) {
-      contentNode.appendChild(textNode);
-      hasTextContent = true; // Marcar que já temos texto
-    }
-  }
-  
-  // TERCEIRO: Processar filhos diretos APENAS se não houver label
-  if (!hasTextContent) {
+    // Função recursiva para extrair texto
+    const extractText = (node: QuasarNode, excludeNodes: Array<QuasarNode> = []): string => {
+      // Pular nós a serem excluídos
+      if (excludeNodes.includes(node)) return '';
+      
+      if (node.tagName === '#text' && node.text) {
+        return node.text.trim();
+      } else if (node.tagName === 'br') {
+        return '\n';
+      } else if (node.childNodes && node.childNodes.length > 0) {
+        return node.childNodes
+          .map(child => extractText(child, excludeNodes))
+          .filter(t => t)
+          .join(' ');
+      }
+      
+      return '';
+    };
+    
+    // Processar todos os filhos do botão
     for (const child of node.childNodes) {
       if (child.tagName === 'q-icon') {
-        // Criar uma cópia do nó com o parentContext adequado
-        const iconNodeWithContext: QuasarNode = {
-          ...child,
-          parentContext: {
-            tagName: 'q-btn',
-            attributes: node.attributes,
-            isPrimaryComponent: true
-          }
-        };
-        
+        // Ícone diretamente filho do botão
         try {
-          const iconComponent = await processIconComponent(iconNodeWithContext, settings);
+          const iconComponent = await processIconComponent({
+            ...child,
+            parentContext: {
+              tagName: 'q-btn',
+              attributes: node.attributes,
+              isPrimaryComponent: true
+            }
+          }, settings);
           
-          // Posicionar ícone corretamente
-          if (child.attributes?.left) {
-            contentNode.insertChild(0, iconComponent);
-            hasLeftIcon = true;
-          } else if (child.attributes?.right) {
-            contentNode.appendChild(iconComponent);
-            hasRightIcon = true;
-          } else {
-            contentNode.appendChild(iconComponent);
-            hasLeftIcon = true; // Por padrão, considera como ícone à esquerda
-          }
+          contentNode.appendChild(iconComponent);
+          hasIcon = true;
         } catch (error) {
-          console.error(`Erro ao processar ícone: ${error}`);
+          console.error(`Erro ao processar ícone filho: ${error}`);
         }
       } else if (child.tagName === 'q-avatar') {
-        // Código para avatar...
-      } else if (child.tagName === 'div') {
-        // Código para div...
-      } else if (child.tagName === '#text' && child.text && child.text.trim()) {
-        // Processar texto direto somente se não tivermos um label
+        // Avatar
         try {
-          const lines = child.text.trim().split(/\s*<br>\s*/);
+          const avatarComponent = await processAvatarComponent({
+            ...child,
+            parentContext: {
+              tagName: 'q-btn',
+              attributes: node.attributes,
+              isPrimaryComponent: true
+            }
+          }, settings);
+          
+          contentNode.appendChild(avatarComponent);
+          hasText = true; // Tratar avatar como conteúdo principal
+        } catch (error) {
+          console.error(`Erro ao processar avatar: ${error}`);
+        }
+      } else if (child.tagName === 'div') {
+        // Div que pode conter ícones e texto
+        try {
+          // Encontrar ícones dentro da div
+          const iconsInDiv = findIcons(child);
+          
+          // Processar ícones encontrados
+          for (const iconNode of iconsInDiv) {
+            try {
+              const iconComponent = await processIconComponent({
+                ...iconNode,
+                parentContext: {
+                  tagName: 'q-btn',
+                  attributes: node.attributes,
+                  isPrimaryComponent: true
+                }
+              }, settings);
+              
+              contentNode.appendChild(iconComponent);
+              hasIcon = true;
+            } catch (error) {
+              console.error(`Erro ao processar ícone dentro de div: ${error}`);
+            }
+          }
+          
+          // Extrair texto, excluindo ícones
+          const textContent = extractText(child, iconsInDiv).trim();
+          
+          if (textContent) {
+            const textNode = await createText(textContent, {
+              fontSize: getFontSizeForButtonSize(props.size),
+              fontWeight: 'medium'
+            });
+            
+            if (textNode) {
+              contentNode.appendChild(textNode);
+              hasText = true;
+            }
+          }
+        } catch (error) {
+          console.error(`Erro ao processar div: ${error}`);
+        }
+      } else if (child.tagName === '#text' && child.text && child.text.trim()) {
+        // Texto direto
+        try {
+          const text = child.text.trim();
+          const lines = text.split(/<br\s*\/?>/);
+          
           for (const line of lines) {
             if (line.trim()) {
               const textNode = await createText(line.trim(), {
-                fontWeight: 'medium',
-                fontSize: getFontSizeForButtonSize(props.size)
+                fontSize: getFontSizeForButtonSize(props.size),
+                fontWeight: 'medium'
               });
               
               if (textNode) {
                 contentNode.appendChild(textNode);
-                hasTextContent = true;
+                hasText = true;
               }
             }
           }
         } catch (error) {
-          console.error(`Erro ao processar texto direto: ${error}`);
+          console.error(`Erro ao processar texto: ${error}`);
         }
       }
     }
   }
   
-  // Se não houver conteúdo, adicionar texto padrão do botão
-  if (!hasTextContent && !hasLeftIcon && !hasRightIcon) {
-    const buttonText = getButtonText(node);
-    if (buttonText && buttonText !== '') {
-      const textNode = await createText(buttonText, {
-        fontWeight: 'medium',
-        fontSize: getFontSizeForButtonSize(props.size)
-      });
-      
-      if (textNode) {
-        contentNode.appendChild(textNode);
-      }
-    } else {
-      // Se não tiver texto e nem ícones, adicionar texto padrão
-      const textNode = await createText("Button", {
-        fontWeight: 'medium',
-        fontSize: getFontSizeForButtonSize(props.size)
-      });
-      
-      if (textNode) {
-        contentNode.appendChild(textNode);
-      }
-    }
-  }
-  
-  // Verificar texto do botão apenas se não houver conteúdo processado
-  if (!hasContent) {
-    const buttonText = props.label || getButtonText(node);
-    if (buttonText && buttonText !== '') {
-      const textNode = await createText(buttonText, {
-        fontWeight: 'medium',
-        fontSize: getFontSizeForButtonSize(props.size)
-      });
-      
-      if (textNode) {
-        contentNode.appendChild(textNode);
-      }
-    } else {
-      // Fallback: texto padrão
+  // PASSO 4: Se ainda não há conteúdo, adicionar texto padrão
+  if (!hasText && !hasIcon) {
+    try {
       const defaultText = await createText("Button", {
-        fontWeight: 'medium',
-        fontSize: getFontSizeForButtonSize(props.size)
+        fontSize: getFontSizeForButtonSize(props.size),
+        fontWeight: 'medium'
       });
-      contentNode.appendChild(defaultText);
+      
+      if (defaultText) {
+        contentNode.appendChild(defaultText);
+      }
+    } catch (error) {
+      console.error(`Erro ao adicionar texto padrão: ${error}`);
     }
-  }
-  
-  // Se estiver carregando, adicionar indicador de carregamento
-  if (props.loading === 'true' || props.loading === '') {
-    // Criar indicador de carregamento
-    const loadingIndicator = figma.createFrame();
-    loadingIndicator.name = "loading-indicator";
-    loadingIndicator.resize(16, 16);
-    loadingIndicator.cornerRadius = 8;
-    loadingIndicator.fills = [{ type: 'SOLID', color: { r: 1, g: 1, b: 1 } }];
-    
-    contentNode.insertChild(0, loadingIndicator);
-  }
-  
-  // Verificar se é um botão apenas com ícone (sem texto)
-  const isIconOnlyButton = (hasLeftIcon || hasRightIcon) && contentNode.children.length === 1;
-  
-  // Para botões somente com ícone, remover padding horizontal extra
-  if (isIconOnlyButton && props.round !== 'true' && props.round !== '') {
-    wrapperNode.paddingLeft = wrapperNode.paddingTop;
-    wrapperNode.paddingRight = wrapperNode.paddingTop;
-  }
-  
-  // Aplicar estilo de forma ao botão
-  if (props.rounded === 'true' || props.rounded === '') {
-    buttonFrame.cornerRadius = 28; // Botão mais arredondado
-  } else if (props.square === 'true' || props.square === '') {
-    buttonFrame.cornerRadius = 0; // Sem arredondamento
-  } else if (props.round === 'true' || props.round === '') {
-    // Botão circular
-    const maxPadding = Math.max(
-      wrapperNode.paddingTop, 
-      wrapperNode.paddingRight,
-      wrapperNode.paddingBottom,
-      wrapperNode.paddingLeft
-    );
-    
-    // Ajustar padding para ser igual em todas as direções
-    wrapperNode.paddingTop = maxPadding;
-    wrapperNode.paddingRight = maxPadding;
-    wrapperNode.paddingBottom = maxPadding;
-    wrapperNode.paddingLeft = maxPadding;
-    
-    // Botão perfeitamente redondo
-    buttonFrame.cornerRadius = 9999;
   }
   
   // MONTAR A ESTRUTURA HIERÁRQUICA
   wrapperNode.appendChild(contentNode);  // content dentro do wrapper
   buttonFrame.appendChild(wrapperNode);  // wrapper dentro do button principal
   
-  // Aplicar cores do Quasar
+  // Aplicar cores do Quasar (manter o código original)
   applyQuasarColors(buttonFrame, colorAnalysis, 'btn');
-
+  
   return buttonFrame;
 }

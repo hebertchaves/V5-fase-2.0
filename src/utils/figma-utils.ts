@@ -176,74 +176,65 @@ export function setNodeSize(node: SceneNode, width: number, height?: number) {
 export function applyStylesToFigmaNode(node: any, styles: Record<string, any>) {
   if (!styles || typeof styles !== 'object') return;
   
-  console.log(`Aplicando estilos ao nó ${node.name}:`, styles);
+  // Processar metadados de dimensionamento contextuais primeiro
+  if ('_layoutInfo' in styles && 'layoutMode' in node) {
+    const isHorizontal = node.layoutMode === 'HORIZONTAL';
+    const layoutInfo = isHorizontal ? 
+      styles._layoutInfo.horizontal : 
+      styles._layoutInfo.vertical;
+    
+    // Aplicar configurações específicas de orientação
+    if (layoutInfo.primaryAxisSizingMode) {
+      node.primaryAxisSizingMode = layoutInfo.primaryAxisSizingMode;
+    }
+    
+    if (layoutInfo.counterAxisSizingMode) {
+      node.counterAxisSizingMode = layoutInfo.counterAxisSizingMode;
+    }
+  }
   
-  // Processa cada propriedade de estilo
+  // Em seguida, processar todas as propriedades normais
   Object.entries(styles).forEach(([key, value]) => {
+    // Ignorar nossas propriedades de metadados
+    if (key.startsWith('_')) return;
+    
     try {
-      // Processar propriedades específicas com mais log
-      if (key.includes('padding') || key.includes('margin') || key.includes('itemSpacing')) {
-        console.log(`Aplicando ${key} = ${value} ao nó ${node.name}`);
-      }
-      
       switch (key) {
-        case 'fills':
-        case 'strokes':
-        case 'effects':
-          if (Array.isArray(value)) {
-            node[key] = value;
-          }
-          break;
-          
-        // Propriedades de margin
-        case 'marginTop':
-        case 'marginRight':
-        case 'marginBottom':
-        case 'marginLeft':
-          // No Figma, não temos margin direta, então criamos um frame wrapper ou usamos padding do container pai
-          console.log(`Margin não é aplicada diretamente: ${key} = ${value}`);
-          break;
-        
-        // Propriedades de padding
-        case 'paddingTop':
-        case 'paddingRight':
-        case 'paddingBottom':
-        case 'paddingLeft':
-          if (key in node) {
-            node[key] = value;
-            console.log(`Aplicado ${key} = ${value} com sucesso`);
-          } else {
-            console.log(`Nó não suporta ${key}`);
-          }
-          break;
-        
-        // Item spacing
-        case 'itemSpacing':
-          if ('itemSpacing' in node) {
-            node.itemSpacing = value;
-            console.log(`Aplicado itemSpacing = ${value} com sucesso`);
-          } else {
-            console.log(`Nó não suporta itemSpacing`);
-          }
-          break;
-          
-        case 'itemSpacingX':
-        case 'itemSpacingY':
-          // Converter para itemSpacing normal se o layout for correspondente
-          if ('layoutMode' in node && 'itemSpacing' in node) {
-            if ((node.layoutMode === 'HORIZONTAL' && key === 'itemSpacingX') ||
-                (node.layoutMode === 'VERTICAL' && key === 'itemSpacingY')) {
-              node.itemSpacing = value;
-              console.log(`Convertido ${key} para itemSpacing = ${value}`);
+        // Caso específico para width e height
+        case 'width':
+        case 'height':
+          if (value === '100%') {
+            if ('layoutMode' in node) {
+              const isHorizontal = node.layoutMode === 'HORIZONTAL';
+              const isWidth = key === 'width';
+              
+              // Aplicar FILL no eixo apropriado, dependendo da orientação
+              if ((isHorizontal && isWidth) || (!isHorizontal && !isWidth)) {
+                node.primaryAxisSizingMode = "FILL";
+              } else {
+                node.counterAxisSizingMode = "FILL";
+              }
+            }
+            
+            // Aplicar constraints para também suportar elementos sem Auto Layout
+            if ('constraints' in node) {
+              if (key === 'width') {
+                node.constraints = { ...node.constraints, horizontal: 'STRETCH' };
+              } else {
+                node.constraints = { ...node.constraints, vertical: 'STRETCH' };
+              }
+            }
+          } else if (typeof value === 'number' && 'resize' in node) {
+            if (key === 'width') {
+              node.resize(value, node.height);
             } else {
-              console.log(`Ignorado ${key} pois não corresponde ao layoutMode (${node.layoutMode})`);
+              node.resize(node.width, value);
             }
           }
           break;
           
-        // Outras propriedades...
+        // Outras propriedades existentes no código original
         default:
-          // Tentar aplicar a propriedade diretamente
           if (key in node) {
             node[key] = value;
           }

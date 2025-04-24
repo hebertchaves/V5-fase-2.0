@@ -415,22 +415,50 @@ export function cssColorToFigmaColor(cssColor: string) {
 function processFullDimensionClass(className: string): Record<string, any> | null {
   if (className === 'full-width') {
     return { 
-      counterAxisSizingMode: "FIXED",
-      primaryAxisSizingMode: "FILL_CONTAINER",
-      width: '100%'
+      // Mantém as propriedades originais para compatibilidade retroativa
+      counterAxisSizingMode: "AUTO",
+      primaryAxisSizingMode: "FILL",
+      width: '100%',
+      // Adiciona metadados para processamento contextual
+      _fullWidthContext: true,
+      _layoutInfo: {
+        horizontal: {
+          primaryAxisSizingMode: "FILL",
+          counterAxisSizingMode: "AUTO"
+        },
+        vertical: {
+          primaryAxisSizingMode: "AUTO",
+          counterAxisSizingMode: "FILL"
+        }
+      },
+      constraints: { horizontal: 'STRETCH' }
     };
   } else if (className === 'full-height') {
     return { 
-      primaryAxisSizingMode: "FIXED", 
-      counterAxisSizingMode: "FILL_CONTAINER",
-      height: '100%'
+      primaryAxisSizingMode: "AUTO", 
+      counterAxisSizingMode: "FILL",
+      height: '100%',
+      _fullHeightContext: true,
+      _layoutInfo: {
+        horizontal: {
+          primaryAxisSizingMode: "AUTO",
+          counterAxisSizingMode: "FILL"
+        },
+        vertical: {
+          primaryAxisSizingMode: "FILL",
+          counterAxisSizingMode: "AUTO"
+        }
+      },
+      constraints: { vertical: 'STRETCH' }
     };
   } else if (className === 'full-screen') {
     return { 
-      primaryAxisSizingMode: "FILL_CONTAINER",
-      counterAxisSizingMode: "FILL_CONTAINER",
+      primaryAxisSizingMode: "FILL",
+      counterAxisSizingMode: "FILL",
       width: '100%',
-      height: '100%'
+      height: '100%',
+      _fullScreenContext: true,
+      constraints: { horizontal: 'STRETCH', vertical: 'STRETCH' }
     };
   }
   
