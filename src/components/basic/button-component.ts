@@ -28,23 +28,12 @@ function getFontSizeForButtonSize(size?: string): number {
  * Processa um componente de botão Quasar (q-btn)
  */
 export async function processButtonComponent(node: QuasarNode, settings: PluginSettings): Promise<FrameNode> {
-  
+  // Manter o código inicial existente
   logDebug('button', `Processando botão: ${JSON.stringify(node.attributes)}`);
-  // Extrair propriedades e estilos
-  const { props, styles } = extractStylesAndProps(node);
-
-   // NOVO: Verificar explicitamente a classe full-width
-   const hasFullWidth = node.attributes?.class?.includes('full-width');
 
   // Criar frame principal para o q-btn
   const buttonFrame = figma.createFrame();
   buttonFrame.name = "q-btn";
-  buttonFrame.layoutMode = "HORIZONTAL";
-  buttonFrame.primaryAxisSizingMode = hasFullWidth ? "FILL" : "AUTO"; // <-- MODIFICAÇÃO AQUI
-  buttonFrame.counterAxisSizingMode = "AUTO";
-  buttonFrame.primaryAxisAlignItems = "CENTER";
-  buttonFrame.counterAxisAlignItems = "CENTER";
-  buttonFrame.cornerRadius = 4;
   
   // Configuração básica do botão (código original)
   buttonFrame.layoutMode = "HORIZONTAL";
@@ -54,13 +43,8 @@ export async function processButtonComponent(node: QuasarNode, settings: PluginS
   buttonFrame.counterAxisAlignItems = "CENTER";
   buttonFrame.cornerRadius = 4;
   
-  // NOVO: Se tiver full-width, garantir que a largura seja corretamente configurada
-  if (hasFullWidth) {
-    // Configurar constraints para garantir que o botão preencha o contêiner
-    if ('constraints' in buttonFrame) {
-      buttonFrame.constraints = { ...buttonFrame.constraints, horizontal: 'STRETCH' };
-    }
-  }
+  // Extrair propriedades e estilos
+  const { props, styles } = extractStylesAndProps(node);
  
   // Analisar configurações de cor do componente
   const colorAnalysis = analyzeComponentColors(node);
