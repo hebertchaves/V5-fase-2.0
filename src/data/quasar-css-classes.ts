@@ -1,6 +1,3 @@
-// src/data/quasar-css-classes.ts
-
-import { RGB } from '../types/settings';
 import { quasarColors } from './color-map';
 
 // Interface para valores de espaçamento

@@ -1,4 +1,26 @@
-
+     
+  // Mapas para outras bibliotecas de ícones
+  export const fontAwesomeMap: Record<string, string> = {
+    // Implementar mapeamentos para Font Awesome
+  };
+  
+  export const ioniconsMap: Record<string, string> = {
+    // Implementar mapeamentos para Ionicons
+  };
+  
+  // Função para obter o caractere Unicode baseado no nome do ícone e biblioteca
+  export function getIconUnicode(library: string, iconName: string): string {
+    switch (library) {
+      case 'material':
+        return materialIconsMap[iconName] || '\uE5CD'; // default: close
+      case 'fontawesome':
+        return fontAwesomeMap[iconName] || '\uF057'; // default: fa-times-circle
+      case 'ionicons':
+        return ioniconsMap[iconName] || '\uF2C0'; // default: ion-close
+      default:
+        return '\uE5CD'; // Material Icons close como fallback padrão
+    }
+  }
 export const materialIconsMap: Record<string, string> = {
     
   '3d_rotation': '\uE84D',
@@ -955,26 +977,3 @@ export const materialIconsMap: Record<string, string> = {
 'text_rotation_none': '\uE93D',
   
   };
-     
-  // Mapas para outras bibliotecas de ícones
-  export const fontAwesomeMap: Record<string, string> = {
-    // Implementar mapeamentos para Font Awesome
-  };
-  
-  export const ioniconsMap: Record<string, string> = {
-    // Implementar mapeamentos para Ionicons
-  };
-  
-  // Função para obter o caractere Unicode baseado no nome do ícone e biblioteca
-  export function getIconUnicode(library: string, iconName: string): string {
-    switch (library) {
-      case 'material':
-        return materialIconsMap[iconName] || '\uE5CD'; // default: close
-      case 'fontawesome':
-        return fontAwesomeMap[iconName] || '\uF057'; // default: fa-times-circle
-      case 'ionicons':
-        return ioniconsMap[iconName] || '\uF2C0'; // default: ion-close
-      default:
-        return '\uE5CD'; // Material Icons close como fallback padrão
-    }
-  }

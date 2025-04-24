@@ -71,19 +71,6 @@ export function processQuasarClass(className: string): Record<string, any> | nul
     return processVisibilityClass(className);
   }
   
-  // Adicionar suporte para classes de espaçamento (q-gutter-*)
-  if (className.match(/^q-gutter-([xy])?-([a-z]+)$/)) {
-    return processGutterClass(className);
-  }
-  
-  // Processamento de classes personalizadas
-  if (className === 'btn-fixed-width') {
-    return {
-      width: 150, // Valor estimado, ajustar conforme necessário
-      primaryAxisSizingMode: "FIXED"
-    };
-  }
-  
   // Outras classes não implementadas
   return null;
 }

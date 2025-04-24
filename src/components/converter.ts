@@ -260,7 +260,7 @@ export async function processGenericComponent(node: QuasarNode, settings: Plugin
   frame.counterAxisSizingMode = "AUTO";
   frame.fills = [{ type: 'SOLID', color: { r: 1, g: 1, b: 1 }, opacity: 0 }];
 
-  // Processar estilos de forma mais robusta
+  // Processar classes de forma mais robusta
   if (node.attributes) {
     // Processar classes primeiro (para garantir a ordem correta de aplicação)
     if (node.attributes.class) {
