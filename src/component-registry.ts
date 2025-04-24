@@ -14,6 +14,7 @@ import { processDisplayComponents } from './components/display/display-component
 import { processOtherComponents } from './components/other/other-components';
 import { processScrollingComponents } from './components/scrolling/scrolling-components';
 import { processListComponent } from './components/display/list-component';
+import { processAvatarComponent } from './components/basic/avatar-component';
 
 /**
  * Registra todos os processadores de componentes no serviço
@@ -43,7 +44,8 @@ export function registerAllComponentProcessors() {
         return processGenericComponent(node, settings);
     }
   });
-  
+  componentService.registerProcessor('avatarProcessor', processAvatarComponent);
+  componentService.registerComponentType('q-avatar', 'basic');
   componentService.registerProcessor('formProcessor', processFormComponents);
   componentService.registerProcessor('layoutProcessor', processLayoutComponents);
   componentService.registerProcessor('navigationProcessor', processNavigationComponents);

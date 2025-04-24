@@ -164,6 +164,41 @@ export function findChildrenByTagName(node: QuasarNode, tagName: string): Quasar
   return results;
 }
 
+// Adicionar ao arquivo utils/quasar-utils.ts
+
+/**
+ * Detecta se um nó possui classes relacionadas a ícones
+ */
+export function detectIconClasses(node: QuasarNode): {hasIcon: boolean, iconName?: string, position?: 'left' | 'right'} {
+  if (!node.attributes?.class) return {hasIcon: false};
+  
+  const classes = node.attributes.class.split(/\s+/);
+  
+  // Detectar classes de ícones comuns
+  for (const cls of classes) {
+    // Classes do Material Design Icons
+    if (cls.startsWith('mdi-')) {
+      return {hasIcon: true, iconName: cls.substring(4), position: 'left'};
+    }
+    
+    // Classes do Font Awesome
+    if (cls.startsWith('fa-')) {
+      return {hasIcon: true, iconName: cls.substring(3), position: 'left'};
+    }
+    
+    // Classes de posicionamento de ícones
+    if (cls === 'q-btn--icon-left') {
+      return {hasIcon: true, position: 'left'};
+    }
+    
+    if (cls === 'q-btn--icon-right') {
+      return {hasIcon: true, position: 'right'};
+    }
+  }
+  
+  return {hasIcon: false};
+}
+
 /**
  * Detecta o tipo e categoria de um componente Quasar
  */
