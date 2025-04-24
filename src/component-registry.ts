@@ -28,13 +28,14 @@ export function registerAllComponentProcessors() {
   componentService.registerProcessor('buttonProcessor', processButtonComponent);
   componentService.registerProcessor('cardProcessor', processCardComponent);
   componentService.registerProcessor('listProcessor', processListComponent);
+  componentService.registerProcessor('avatarProcessor', processAvatarComponent);
 
   // Registrar tipos de componentes
   componentService.registerComponentType('q-list', 'display');
   componentService.registerComponentType('q-item', 'display');
   componentService.registerComponentType('q-item-section', 'display');
   componentService.registerComponentType('q-item-label', 'display');
-  
+  componentService.registerComponentType('q-avatar', 'basic');
   // Processadores por categoria
   componentService.registerProcessor('basicProcessor', (node, type, settings) => {
     switch (type) {

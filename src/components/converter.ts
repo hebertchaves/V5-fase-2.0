@@ -146,41 +146,28 @@ async function processNodeTreeSafely(node: QuasarNode, parentFigmaNode: FrameNod
  * Processa a árvore de nós com suporte completo a cores
  */
 async function processNodeTree(node: QuasarNode, parentFigmaNode: FrameNode, settings: PluginSettings): Promise<void> {
-  // Processar nós de texto de forma simplificada
-  if (node.tagName === '#text' && node.text && node.text.trim()) {
-    try {
-      // Método simplificado para texto
-      await figma.loadFontAsync({ family: "Roboto", style: "Regular" });
-      const textNode = figma.createText();
-      textNode.characters = node.text.trim();
-      parentFigmaNode.appendChild(textNode);
-      return;
-    } catch (error) {
-      console.error('Erro ao criar nó de texto:', error);
-    }
+  // Ignorar nós de texto vazios
+  if (node.tagName === '#text' && (!node.text || !node.text.trim())) {
+    return;
   }
   
   // Processar nós de texto
   if (node.tagName === '#text' && node.text) {
     try {
-      // PRIMEIRO carregar a fonte - é fundamental fazer isso antes de qualquer operação
-      await figma.loadFontAsync({ family: "Roboto", style: "Regular" });
-      
-      // DEPOIS criar o nó de texto
-      const textNode = figma.createText();
-      
-      // Definir a fonte explicitamente
-      textNode.fontName = { family: "Roboto", style: "Regular" };
-      
-      // Definir o texto
-      textNode.characters = node.text.trim();
-      
-      // Adicionar ao pai
-      parentFigmaNode.appendChild(textNode);
-      return;
+      // Melhorar o tratamento de quebras de linha HTML
+      const lines = node.text.trim().split(/\s*<br>\s*/);
+      for (const line of lines) {
+        if (line.trim()) {
+          const textNode = await createText(line.trim());
+          if (textNode) {
+            parentFigmaNode.appendChild(textNode);
+          }
+        }
+      }
     } catch (error) {
-      console.error('Erro ao criar nó de texto:', error);
+      logError('processNode', `Erro ao processar texto: ${node.text}`, error);
     }
+    return;
   }
   
   // Log para debug
@@ -196,9 +183,12 @@ async function processNodeTree(node: QuasarNode, parentFigmaNode: FrameNode, set
     logInfo('processNode', `Componente Quasar detectado: ${componentType.category}/${componentType.type}`);
     
     try {
-      const colorAnalysis = analyzeComponentColors(node);
-      logDebug('processNode', `Análise de cor: ${JSON.stringify(colorAnalysis)}`);
+      // Adicionar contexto de pai se presente
+      if (node.parentContext) {
+        logDebug('processNode', `Contexto de pai presente: ${node.parentContext.tagName}`);
+      }
       
+      // Tentar processar com o processador específico
       figmaNode = await componentService.processComponentByCategory(
         node,
         componentType.category,
@@ -206,47 +196,39 @@ async function processNodeTree(node: QuasarNode, parentFigmaNode: FrameNode, set
         settings
       );
       
+      // Aplicar análise de cores apenas se não tiver sido feito antes
+      const colorAnalysis = analyzeComponentColors(node);
       if (figmaNode && !figmaNode.getPluginData('colors_applied')) {
         applyQuasarColors(figmaNode, colorAnalysis, componentType.type);
         figmaNode.setPluginData('colors_applied', 'true');
       }
     } catch (error) {
       logError('processNode', `Erro ao processar componente Quasar: ${node.tagName}`, error);
+      // Fallback para componente genérico
       figmaNode = await processGenericComponent(node, settings);
       
       const colorAnalysis = analyzeComponentColors(node);
       applyQuasarColors(figmaNode, colorAnalysis, 'generic');
     }
   } else {
+    // Processar componente genérico
     figmaNode = await processGenericComponent(node, settings);
   }
   
-  // Processamento específico para componentes de layout
-  if (isQuasarComponent && componentType.category === 'layout') {
-    // Adicionar contexto aos filhos para que saibam que estão dentro de um componente de layout
-    for (const childNode of node.childNodes) {
-      if (childNode.tagName && childNode.tagName !== '#text') {
-        childNode.parentContext = {
-          tagName: node.tagName,
-          attributes: node.attributes,
-          isPrimaryComponent: true
-        };
-      }
-    }
-  }
-
   // Adicionar ao nó pai
   parentFigmaNode.appendChild(figmaNode);
   
   // Processar filhos recursivamente
-  // NOTA: Apenas processa filhos para contêineres genéricos, 
-  // componentes Quasar específicos devem processar seus próprios filhos
-  if (!isQuasarComponent && node.childNodes && node.childNodes.length > 0) {
+  // MODIFICADO: Checar se o componente Quasar específico já processa seus próprios filhos
+  const processesOwnChildren = [
+    'q-btn', 'q-card', 'q-input', 'q-select', 'q-radio', 'q-checkbox', 'q-toggle'
+  ].includes(node.tagName.toLowerCase());
+  
+  if ((!isQuasarComponent || !processesOwnChildren) && node.childNodes && node.childNodes.length > 0) {
     for (const child of node.childNodes) {
       await processNodeTree(child, figmaNode, settings);
     }
   }
-    
 }
 
 /**

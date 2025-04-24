@@ -1,11 +1,12 @@
 // src/components/basic/button-component.ts
 import { QuasarNode, PluginSettings } from '../../types/settings';
 import { extractStylesAndProps, getButtonText } from '../../utils/quasar-utils';
-import { applyStylesToFigmaNode, createText } from '../../utils/figma-utils';
-import { quasarColors } from '../../data/color-map';
+import {  createText } from '../../utils/figma-utils';
+import { componentService } from '../../utils/component-service';
 import { analyzeComponentColors, applyQuasarColors } from '../../utils/color-utils';
 import { processIconComponent } from './icon-component';
 import { logDebug, logError } from '../../utils/logger.js';
+
 
 /**
  * Retorna o tamanho de fonte adequado para um botão baseado no tamanho
@@ -122,6 +123,7 @@ export async function processButtonComponent(node: QuasarNode, settings: PluginS
   let hasLeftIcon = false;
   let hasRightIcon = false;
   let hasContent = false;
+  let hasTextContent = false;
   
   // Verificar ícone à esquerda
   if (props.icon) {
@@ -195,12 +197,40 @@ export async function processButtonComponent(node: QuasarNode, settings: PluginS
     }
   }
   
-  // MELHORADO: Processar componentes filhos diretos (q-icon)
+  // NOVO: Processar filhos diretos
   for (const child of node.childNodes) {
     if (child.tagName === 'q-icon') {
+      // Criar uma cópia do nó com o parentContext adequado
+      const iconNodeWithContext: QuasarNode = {
+        ...child,
+        parentContext: {
+          tagName: 'q-btn',
+          attributes: node.attributes,
+          isPrimaryComponent: true
+        }
+      };
+      
       try {
-        // Criar uma cópia do nó com o parentContext adequado
-        const iconNodeWithContext: QuasarNode = {
+        const iconComponent = await processIconComponent(iconNodeWithContext, settings);
+        
+        // Posicionar ícone corretamente
+        if (child.attributes?.left) {
+          contentNode.insertChild(0, iconComponent);
+          hasLeftIcon = true;
+        } else if (child.attributes?.right) {
+          contentNode.appendChild(iconComponent);
+          hasRightIcon = true;
+        } else {
+          contentNode.appendChild(iconComponent);
+          hasLeftIcon = true; // Por padrão, considera como ícone à esquerda
+        }
+      } catch (error) {
+        console.error(`Erro ao processar ícone: ${error}`);
+      }
+    } else if (child.tagName === 'q-avatar') {
+      // Processar avatar usando serviço
+      try {
+        const avatarNodeWithContext: QuasarNode = {
           ...child,
           parentContext: {
             tagName: 'q-btn',
@@ -209,73 +239,92 @@ export async function processButtonComponent(node: QuasarNode, settings: PluginS
           }
         };
         
-        const iconComponent = await processIconComponent(iconNodeWithContext, settings);
+        // Importar dinamicamente
+        const avatarComponent = await componentService.processComponentByCategory(
+          avatarNodeWithContext,
+          'basic',
+          'avatar',
+          settings
+        );
         
-        // Garantir tamanho adequado do ícone
-        const iconSize = Math.max(24, getFontSizeForButtonSize(props.size) * 1.2);
-        if ('resize' in iconComponent) {
-          iconComponent.resize(iconSize, iconSize);
+        if (avatarComponent) {
+          contentNode.appendChild(avatarComponent);
+          hasTextContent = true; // Avatar substitui o texto
         }
-        
-        // Posicionar ícone corretamente
-        const isLeftIcon = child.attributes?.left === 'true' || child.attributes?.left === '';
-        if (isLeftIcon) {
-          contentNode.insertChild(0, iconComponent);
-          hasLeftIcon = true;
-        } else {
-          contentNode.appendChild(iconComponent);
-          hasRightIcon = true;
-        }
-        
-        hasContent = true;
       } catch (error) {
-        console.error(`Erro ao processar ícone filho direto: ${error}`);
+        console.error(`Erro ao processar avatar: ${error}`);
       }
-    }
-    else if (child.tagName === 'div') {
+    } else if (child.tagName === 'div') {
+      // Processar div como conteúdo personalizado
       try {
-        // Processar div como conteúdo personalizado
-        const customContent = figma.createFrame();
-        customContent.name = "custom-content";
-        customContent.layoutMode = "VERTICAL";
-        customContent.primaryAxisSizingMode = "AUTO";
-        customContent.counterAxisSizingMode = "AUTO";
-        customContent.fills = [{ type: 'SOLID', color: { r: 1, g: 1, b: 1 }, opacity: 0 }];
+        const customContentFrame = figma.createFrame();
+        customContentFrame.name = "custom-content";
+        customContentFrame.layoutMode = "VERTICAL";
+        customContentFrame.primaryAxisSizingMode = "AUTO";
+        customContentFrame.counterAxisSizingMode = "AUTO";
+        customContentFrame.fills = [{ type: 'SOLID', color: { r: 1, g: 1, b: 1 }, opacity: 0 }];
         
-        // Procurar por texto dentro da div
-        let divText = "";
+        // Extrair texto de dentro da div
+        let contentText = "";
         for (const textChild of child.childNodes) {
-          if (textChild.tagName === '#text' && textChild.text) {
-            divText += textChild.text.trim() + ' ';
+          if (textChild.text) {
+            contentText += textChild.text.trim() + " ";
+          } else if (textChild.tagName === 'br') {
+            contentText += "\n";
           }
         }
         
-        if (divText.trim()) {
-          const textNode = await createText(divText.trim());
-          customContent.appendChild(textNode);
-          contentNode.appendChild(customContent);
-          hasContent = true;
+        if (contentText.trim()) {
+          const textNode = await createText(contentText.trim());
+          if (textNode) {
+            customContentFrame.appendChild(textNode);
+            contentNode.appendChild(customContentFrame);
+            hasTextContent = true;
+          }
         }
       } catch (error) {
-        console.error(`Erro ao processar div no botão: ${error}`);
+        console.error(`Erro ao processar conteúdo customizado: ${error}`);
+      }
+    } else if (child.tagName === '#text' && child.text && child.text.trim()) {
+      // Processar texto direto
+      try {
+        const lines = child.text.trim().split(/\s*<br>\s*/);
+        for (const line of lines) {
+          if (line.trim()) {
+            const textNode = await createText(line.trim());
+            if (textNode) {
+              contentNode.appendChild(textNode);
+              hasTextContent = true;
+            }
+          }
+        }
+      } catch (error) {
+        console.error(`Erro ao processar texto direto: ${error}`);
       }
     }
-    else if (child.tagName === '#text' && child.text && child.text.trim()) {
-      // Texto direto
-      try {
-        const buttonText = child.text.trim();
-        // Substituir <br> por quebras de linha reais
-        const formattedText = buttonText.replace(/<br\s*\/?>/gi, '\n');
-        
-        const textNode = await createText(formattedText, {
-          fontWeight: 'medium',
-          fontSize: getFontSizeForButtonSize(props.size)
-        });
-        
+  }
+  
+  // Se não houver conteúdo, adicionar texto padrão do botão
+  if (!hasTextContent && !hasLeftIcon && !hasRightIcon) {
+    const buttonText = props.label || getButtonText(node);
+    if (buttonText && buttonText !== '') {
+      const textNode = await createText(buttonText, {
+        fontWeight: 'medium',
+        fontSize: getFontSizeForButtonSize(props.size)
+      });
+      
+      if (textNode) {
         contentNode.appendChild(textNode);
-        hasContent = true;
-      } catch (error) {
-        console.error(`Erro ao processar texto direto no botão: ${error}`);
+      }
+    } else {
+      // Se não tiver texto e nem ícones, adicionar texto padrão
+      const textNode = await createText("Button", {
+        fontWeight: 'medium',
+        fontSize: getFontSizeForButtonSize(props.size)
+      });
+      
+      if (textNode) {
+        contentNode.appendChild(textNode);
       }
     }
   }

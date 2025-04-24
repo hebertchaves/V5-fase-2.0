@@ -74,90 +74,94 @@ export async function loadRequiredFonts() {
 }
 
 // Melhorar a função createText com retry e fallback robustos
+// Modificação em src/utils/figma-utils.ts
+
 export async function createText(content: string, options: any = {}): Promise<TextNode | null> {
-  const maxRetries = 3;
-  let attempts = 0;
+  if (!content) content = '';
   
-  // Fontes a tentar, em ordem de preferência
-  const fontFamilies = ["Material Icons", "Roboto", "Inter", "Arial", "Sans-Serif"];
-  const fontStyles = [options.fontWeight === 'bold' ? "Bold" : 
-                     options.fontWeight === 'medium' ? "Medium" : "Regular"];
-  
-  while (attempts < maxRetries) {
-    attempts++;
+  try {
+    const textNode = figma.createText();
     
+    // Determinar a fonte a ser usada
+    const fontFamily = options.fontFamily || "Roboto";
+    const fontStyle = options.fontStyle || (options.fontWeight === 'bold' ? "Bold" : 
+                                           options.fontWeight === 'medium' ? "Medium" : "Regular");
+    
+    // Tentar carregar a fonte primária
     try {
-      const textNode = figma.createText();
-      
-      // Tentar carregar a fonte atual
-      const fontFamily = fontFamilies[Math.min(attempts - 1, fontFamilies.length - 1)];
-      const fontStyle = fontStyles[0];
-      
-      await figma.loadFontAsync({
-        family: fontFamily,
-        style: fontStyle
-      });
-      
-      // Configurar o nó de texto
-      textNode.characters = content || '';
+      await figma.loadFontAsync({ family: fontFamily, style: fontStyle });
       textNode.fontName = { family: fontFamily, style: fontStyle };
-      
-      // Aplicar configurações adicionais
-      if (options.fontSize) textNode.fontSize = options.fontSize;
-      if (options.color) {
-        textNode.fills = [{ type: 'SOLID', color: options.color }];
-      }
-      
-      // Configurações adicionais...
-      if (options.alignment) {
-        textNode.textAlignHorizontal = options.alignment;
-      }
-      
-      if (options.verticalAlignment) {
-        textNode.textAlignVertical = options.verticalAlignment;
-      }
-      
-      if (options.opacity !== undefined && textNode.fills && 
-          Array.isArray(textNode.fills) && textNode.fills.length > 0) {
-        const newFills = [];
-        for (const fill of textNode.fills) {
-          if (fill.type === 'SOLID') {
-            newFills.push({...fill, opacity: options.opacity});
-          } else {
-            newFills.push(fill);
-          }
-        }
-        textNode.fills = newFills;
-      }
-      
-      return textNode;
     } catch (error) {
-      console.warn(`Tentativa ${attempts} de criar texto falhou:`, error);
+      console.warn(`Não foi possível carregar a fonte ${fontFamily} ${fontStyle}, tentando alternativas`);
       
-      // Na última tentativa, criar um placeholder visual
-      if (attempts >= maxRetries) {
-        console.error('Todas as tentativas de criar texto falharam, criando placeholder:', error);
-        
+      // Tentar fontes alternativas em ordem de preferência
+      const alternativeFonts = [
+        { family: "Roboto", style: fontStyle },
+        { family: "Inter", style: fontStyle },
+        { family: "Roboto", style: "Regular" },
+        { family: "Inter", style: "Regular" }
+      ];
+      
+      let fontLoaded = false;
+      for (const alternativeFont of alternativeFonts) {
         try {
-          // Criar um frame como placeholder para texto
-          const placeholderFrame = figma.createFrame();
-          placeholderFrame.name = "text-placeholder";
-          placeholderFrame.resize(100, 24); // Tamanho padrão
-          
-          // Usar cor especificada ou padrão
-          const color = options.color || { r: 0.4, g: 0.4, b: 0.4 };
-          placeholderFrame.fills = [{ type: 'SOLID', color, opacity: 0.5 }];
-          
-          return placeholderFrame as unknown as TextNode;
-        } catch (placeholderError) {
-          console.error('Falha ao criar placeholder para texto:', placeholderError);
-          return null;
+          await figma.loadFontAsync(alternativeFont);
+          textNode.fontName = alternativeFont;
+          fontLoaded = true;
+          console.log(`Usando fonte alternativa: ${alternativeFont.family} ${alternativeFont.style}`);
+          break;
+        } catch (innerError) {
+          continue;
         }
+      }
+      
+      if (!fontLoaded) {
+        throw new Error("Não foi possível carregar nenhuma fonte");
       }
     }
+    
+    // Definir o texto
+    textNode.characters = content;
+    
+    // Configurações de texto
+    if (options.fontSize) textNode.fontSize = options.fontSize;
+    
+    // Cor do texto
+    if (options.color) {
+      textNode.fills = [{ type: 'SOLID', color: options.color }];
+    }
+    
+    // Opacidade
+    if (options.opacity !== undefined && textNode.fills && Array.isArray(textNode.fills) && textNode.fills.length > 0) {
+      const newFills = [];
+      for (let i = 0; i < textNode.fills.length; i++) {
+        const fill = textNode.fills[i];
+        // Criar uma cópia do objeto fill
+        const newFill = {...fill};
+        // Definir opacidade na cópia
+        if (newFill.type === 'SOLID') {
+          newFill.opacity = options.opacity;
+        }
+        newFills.push(newFill);
+      }
+      // Atribuir os novos fills
+      textNode.fills = newFills;
+    }
+    
+    // Alinhamento
+    if (options.alignment) {
+      textNode.textAlignHorizontal = options.alignment;
+    }
+    
+    if (options.verticalAlignment) {
+      textNode.textAlignVertical = options.verticalAlignment;
+    }
+    
+    return textNode;
+  } catch (error) {
+    console.error('Erro ao criar texto:', error);
+    return null;
   }
-  
-  return null;
 }
 // Função existente que precisa ser exportada
 export function setNodeSize(node: SceneNode, width: number, height?: number) {
