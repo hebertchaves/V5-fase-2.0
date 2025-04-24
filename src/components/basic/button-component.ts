@@ -31,11 +31,10 @@ export async function processButtonComponent(node: QuasarNode, settings: PluginS
   // Manter o código inicial existente
   logDebug('button', `Processando botão: ${JSON.stringify(node.attributes)}`);
 
-  // Criar frame principal para o q-btn
   const buttonFrame = figma.createFrame();
   buttonFrame.name = "q-btn";
   
-  // Configuração básica do botão (código original)
+  // Configuração básica do botão
   buttonFrame.layoutMode = "HORIZONTAL";
   buttonFrame.primaryAxisSizingMode = "AUTO";
   buttonFrame.counterAxisSizingMode = "AUTO";
@@ -45,10 +44,34 @@ export async function processButtonComponent(node: QuasarNode, settings: PluginS
   
   // Extrair propriedades e estilos
   const { props, styles } = extractStylesAndProps(node);
- 
-  // Analisar configurações de cor do componente
-  const colorAnalysis = analyzeComponentColors(node);
   
+  // Verificar se tem a classe full-width
+  const hasFullWidth = node.attributes?.class?.includes('full-width') || false;
+  
+   
+  // Criar o content node
+  const contentNode = figma.createFrame();
+  contentNode.name = "q-btn__content";
+  contentNode.layoutMode = "HORIZONTAL";
+  contentNode.primaryAxisSizingMode = "AUTO";
+  contentNode.counterAxisSizingMode = "AUTO";
+  contentNode.primaryAxisAlignItems = "CENTER";
+  contentNode.counterAxisAlignItems = "CENTER";
+  contentNode.fills = [{ type: 'SOLID', color: { r: 1, g: 1, b: 1 }, opacity: 0 }];
+  contentNode.itemSpacing = 8;
+  
+  // Verificar texto do botão (usar label ou texto interno)
+  const buttonText = props.label || getButtonText(node);
+  if (buttonText && buttonText !== '') {
+    const textNode = await createText(buttonText, {
+      fontWeight: 'medium',
+      fontSize: 14
+    });
+    
+    if (textNode) {
+      contentNode.appendChild(textNode);
+    }
+  }
   // ESTRUTURA HIERÁRQUICA CORRETA - 1. Criar o wrapper
   const wrapperNode = figma.createFrame();
   wrapperNode.name = "q-btn__wrapper";
@@ -57,7 +80,24 @@ export async function processButtonComponent(node: QuasarNode, settings: PluginS
   wrapperNode.counterAxisSizingMode = "AUTO";
   wrapperNode.primaryAxisAlignItems = "CENTER";
   wrapperNode.counterAxisAlignItems = "CENTER";
-  wrapperNode.fills = [{ type: 'SOLID', color: { r: 1, g: 1, b: 1 }, opacity: 0 }];
+  wrapperNode.fills = [{ type: 'SOLID', color: { r: 1, g: 1, b: 1 }, opacity: 0 }];  
+  
+  // MONTAR A ESTRUTURA HIERÁRQUICA (sempre igual)
+  wrapperNode.appendChild(contentNode);
+  buttonFrame.appendChild(wrapperNode);
+  
+  // Só depois aplicar full-width (se necessário)
+  if (hasFullWidth) {
+    // Ajustar o frame do botão para ocupar toda a largura
+    buttonFrame.layoutAlign = "STRETCH";
+    buttonFrame.layoutGrow = 1;
+    buttonFrame.primaryAxisSizingMode = "FILL_CONTAINER";
+    buttonFrame.resize(9999, buttonFrame.height); // Um valor muito alto para garantir largura máxima
+  }
+  
+  // Aplicar cores e estilos
+  const colorAnalysis = analyzeComponentColors(node);
+  applyQuasarColors(buttonFrame, colorAnalysis, 'btn');
   
   // Ajustar padding com base nas propriedades (código original)
   if (props.dense === 'true' || props.dense === '') {
@@ -106,17 +146,7 @@ export async function processButtonComponent(node: QuasarNode, settings: PluginS
     wrapperNode.paddingTop = 8;
     wrapperNode.paddingBottom = 8;
   }
-  
-  // 2. Criar o content
-  const contentNode = figma.createFrame();
-  contentNode.name = "q-btn__content";
-  contentNode.layoutMode = "HORIZONTAL";
-  contentNode.primaryAxisSizingMode = "AUTO";
-  contentNode.counterAxisSizingMode = "AUTO";
-  contentNode.primaryAxisAlignItems = "CENTER";
-  contentNode.counterAxisAlignItems = "CENTER";
-  contentNode.fills = [{ type: 'SOLID', color: { r: 1, g: 1, b: 1 }, opacity: 0 }];
-  contentNode.itemSpacing = 8;
+
   
   // AQUI COMEÇA A MODIFICAÇÃO: Usando uma abordagem mais controlada
   // Variáveis para controlar o que já foi processado

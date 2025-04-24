@@ -7,8 +7,7 @@ import { componentService } from '../utils/component-service';
 import { analyzeComponentColors, colorAnalysisToFigmaProps, applyQuasarColors } from '../utils/color-utils';
 import { logInfo, logError, logDebug } from '../utils/logger';
 import { processQuasarClass } from '../utils/style-utils';
-
-
+import { processButtonComponent } from '../../src/components/basic/button-component';
 
 /**
  * Função principal de conversão, agora com processamento avançado de cores
@@ -101,6 +100,19 @@ async function processNodeTreeSafely(node: QuasarNode, parentFigmaNode: FrameNod
       componentType = detectComponentType(node);
       logInfo('processNode', `Componente Quasar detectado: ${componentType.category}/${componentType.type}`);
       
+      // Garantir que todos os componentes q-btn usem o processador de botões
+      if (node.tagName.toLowerCase() === 'q-btn') {
+        figmaNode = await processButtonComponent(node, settings);
+      } else {
+        // Processamento normal para outros componentes
+        figmaNode = await componentService.processComponentByCategory(
+          node,
+          componentType.category,
+          componentType.type,
+          settings
+        );
+      }
+
       try {
         figmaNode = await componentService.processComponentByCategory(
           node,
@@ -262,7 +274,17 @@ export async function processGenericComponent(node: QuasarNode, settings: Plugin
           console.log(`Nenhum estilo encontrado para classe ${className}`);
         }
       }
-      
+      // Ordenar classes para aplicar na ordem correta
+        const sortedClasses = classes.sort((a, b) => {
+        const order = ['full-width', 'full-height', 'row', 'column', 'q-pa-', 'q-ma-', 'q-gutter-', 'text-', 'bg-'];
+        const getOrder = (className: string) => {
+          for (let i = 0; i < order.length; i++) {
+            if (className.startsWith(order[i])) return i;
+          }
+          return order.length;
+        };
+        return getOrder(a) - getOrder(b);
+      });
       // Adicionar o nome da classe ao nome do frame
       frame.name = `${node.tagName} (${node.attributes.class})`;
     }

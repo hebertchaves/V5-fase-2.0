@@ -176,6 +176,7 @@ export function setNodeSize(node: SceneNode, width: number, height?: number) {
 export function applyStylesToFigmaNode(node: any, styles: Record<string, any>) {
   if (!styles || typeof styles !== 'object') return;
   
+  
   // Processar metadados de dimensionamento contextuais primeiro
   if ('_layoutInfo' in styles && 'layoutMode' in node) {
     const isHorizontal = node.layoutMode === 'HORIZONTAL';
@@ -204,19 +205,22 @@ export function applyStylesToFigmaNode(node: any, styles: Record<string, any>) {
         case 'width':
         case 'height':
           if (value === '100%') {
-            if ('layoutMode' in node) {
-              const isHorizontal = node.layoutMode === 'HORIZONTAL';
-              const isWidth = key === 'width';
-              
-              // Aplicar FILL no eixo apropriado, dependendo da orientação
-              if ((isHorizontal && isWidth) || (!isHorizontal && !isWidth)) {
-                node.primaryAxisSizingMode = "FILL";
-              } else {
-                node.counterAxisSizingMode = "FILL";
-              }
+            // Tentar todas as abordagens possíveis para aplicar largura total
+            if ('layoutAlign' in node) {
+              node.layoutAlign = "STRETCH";
             }
-            
-            // Aplicar constraints para também suportar elementos sem Auto Layout
+            if (key === 'width' && value === '100%') {
+              console.log('Aplicando width=100% ao nó:', node.name, 'Propriedades disponíveis:', Object.keys(node));
+            }
+            if ('layoutGrow' in node) {
+              node.layoutGrow = 1;
+            }
+            if ('primaryAxisSizingMode' in node && key === 'width') {
+              node.primaryAxisSizingMode = "FILL_CONTAINER";
+            }
+            if ('counterAxisSizingMode' in node && key === 'height') {
+              node.counterAxisSizingMode = "FILL_CONTAINER";
+            }
             if ('constraints' in node) {
               if (key === 'width') {
                 node.constraints = { ...node.constraints, horizontal: 'STRETCH' };
@@ -224,7 +228,9 @@ export function applyStylesToFigmaNode(node: any, styles: Record<string, any>) {
                 node.constraints = { ...node.constraints, vertical: 'STRETCH' };
               }
             }
-          } else if (typeof value === 'number' && 'resize' in node) {
+            // Log para debug
+            console.log(`Aplicando ${key}=100% ao nó ${node.name}`);
+          } else if (typeof value === 'number') {
             if (key === 'width') {
               node.resize(value, node.height);
             } else {

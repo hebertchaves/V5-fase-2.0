@@ -39,6 +39,7 @@ export function registerAllComponentProcessors() {
   componentService.registerComponentType('q-item-label', 'display');
   componentService.registerComponentType('q-avatar', 'basic');
   componentService.registerComponentType('q-icon', 'basic');
+  componentService.registerComponentType('q-btn', 'basic');
   // Processadores por categoria
   componentService.registerProcessor('basicProcessor', (node, type, settings) => {
     switch (type) {

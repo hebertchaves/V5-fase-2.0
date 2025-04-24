@@ -205,6 +205,9 @@ export function detectIconClasses(node: QuasarNode): {hasIcon: boolean, iconName
 export function detectComponentType(node: QuasarNode): ComponentTypeInfo {
   // Console logging para debug
   console.log('Detectando tipo para componente:', node.tagName);
+  if (node.tagName.toLowerCase() === 'q-btn') {
+    return { category: 'basic', type: 'btn' };
+  }
   
   if (!node.tagName) {
     return { category: 'unknown', type: 'generic' };

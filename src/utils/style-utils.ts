@@ -8,6 +8,12 @@ import quasarCssClasses, { processQuasarDynamicClass } from '../data/quasar-css-
 export function processQuasarClass(className: string): Record<string, any> | null {
   // Mostrar debug da classe sendo processada
   console.log(`Processando classe: ${className}`);
+  // Em processQuasarClass
+  if (className === 'full-width') {
+    const result = processFullDimensionClass(className);
+    console.log('Processando full-width:', result);
+    return result;
+  }
   
   // Classes de espaçamento (q-pa-*, q-ma-*)
   if (className.match(/^q-([mp])([atrblxy])?-([a-z]+)$/)) {
@@ -415,23 +421,11 @@ export function cssColorToFigmaColor(cssColor: string) {
 function processFullDimensionClass(className: string): Record<string, any> | null {
   if (className === 'full-width') {
     return { 
-      // Mantém as propriedades originais para compatibilidade retroativa
-      counterAxisSizingMode: "AUTO",
-      primaryAxisSizingMode: "FILL",
-      width: '100%',
-      // Adiciona metadados para processamento contextual
-      _fullWidthContext: true,
-      _layoutInfo: {
-        horizontal: {
-          primaryAxisSizingMode: "FILL",
-          counterAxisSizingMode: "AUTO"
-        },
-        vertical: {
-          primaryAxisSizingMode: "AUTO",
-          counterAxisSizingMode: "FILL"
-        }
-      },
-      constraints: { horizontal: 'STRETCH' }
+      counterAxisSizingMode: "FIXED",
+      primaryAxisSizingMode: "FILL_CONTAINER",
+      layoutAlign: "STRETCH", // Adicionar esta propriedade
+      layoutGrow: 1,          // Adicionar esta propriedade
+      width: '100%'
     };
   } else if (className === 'full-height') {
     return { 
