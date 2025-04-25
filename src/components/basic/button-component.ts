@@ -28,7 +28,6 @@ function getFontSizeForButtonSize(size?: string): number {
  * Processa um componente de botão Quasar (q-btn)
  */
 export async function processButtonComponent(node: QuasarNode, settings: PluginSettings): Promise<FrameNode> {
-  // Manter o código inicial existente
   logDebug('button', `Processando botão: ${JSON.stringify(node.attributes)}`);
 
   // Verificar se tem a classe full-width
@@ -38,7 +37,18 @@ export async function processButtonComponent(node: QuasarNode, settings: PluginS
   const buttonFrame = figma.createFrame();
   buttonFrame.name = "q-btn";
   
-  // Configuração básica do botão (código original)
+  // Extrair propriedades e estilos
+  const { props, styles } = extractStylesAndProps(node);
+  
+  // IMPORTANTE: Verificar full-width aqui e alterar o modo e o nome adequadamente
+  let isFullWidth = false;
+  if (props.class && props.class.includes('full-width')) {
+    isFullWidth = true;
+    buttonFrame.name = "q-btn (full-width)";
+    // Não altere o layoutMode ainda, faremos isso após criar a estrutura completa
+  }
+  
+  // Configuração básica do botão
   buttonFrame.layoutMode = "HORIZONTAL";
   buttonFrame.primaryAxisSizingMode = "AUTO";
   buttonFrame.counterAxisSizingMode = "AUTO";
@@ -68,9 +78,6 @@ export async function processButtonComponent(node: QuasarNode, settings: PluginS
     console.log('Aplicando full-width ao botão');
   }
   
-  // Extrair propriedades e estilos
-  const { props, styles } = extractStylesAndProps(node);
- 
   // Analisar configurações de cor do componente
   const colorAnalysis = analyzeComponentColors(node);
   
@@ -359,11 +366,21 @@ export async function processButtonComponent(node: QuasarNode, settings: PluginS
     }
   }  
   
-  // Aplicar cores do Quasar (manter o código original)
-  applyQuasarColors(buttonFrame, colorAnalysis, 'btn');
-  
   // MONTAR A ESTRUTURA HIERÁRQUICA
   wrapperNode.appendChild(contentNode);  // content dentro do wrapper
   buttonFrame.appendChild(wrapperNode);  // wrapper dentro do button principal
+  
+  // IMPORTANTE: Aplicar full-width SOMENTE APÓS a estrutura estar completa
+  if (isFullWidth) {
+    buttonFrame.primaryAxisSizingMode = "FILL_CONTAINER";
+    // Ajustar para ocupar toda a largura do contêiner
+    if (buttonFrame.parent) {
+      buttonFrame.layoutAlign = "STRETCH";
+    }
+  }
+  
+  // Aplicar cores do Quasar
+  applyQuasarColors(buttonFrame, colorAnalysis, 'btn');
+  
   return buttonFrame;
 }

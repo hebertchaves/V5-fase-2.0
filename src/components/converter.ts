@@ -181,14 +181,14 @@ async function processNodeTree(node: QuasarNode, parentFigmaNode: FrameNode, set
     }
     return;
   }
-  
+   let componentType: ComponentTypeInfo; // Declarar no escopo correto
   // Log para debug
   logDebug('processNode', `Processando nó: ${node.tagName}`);
   
   // Verificar se é um componente Quasar
   const isQuasarComponent = node.tagName.toLowerCase().startsWith('q-');
   let figmaNode: FrameNode;
-  let componentType: ComponentTypeInfo; // Declarar no escopo correto
+ 
   
   if (isQuasarComponent) {
     componentType = detectComponentType(node);

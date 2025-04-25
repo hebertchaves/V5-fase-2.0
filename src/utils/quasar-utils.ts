@@ -205,9 +205,6 @@ export function detectIconClasses(node: QuasarNode): {hasIcon: boolean, iconName
 export function detectComponentType(node: QuasarNode): ComponentTypeInfo {
   // Console logging para debug
   console.log('Detectando tipo para componente:', node.tagName);
-  if (node.tagName.toLowerCase() === 'q-btn') {
-    return { category: 'basic', type: 'btn' };
-  }
   
   if (!node.tagName) {
     return { category: 'unknown', type: 'generic' };
@@ -215,9 +212,14 @@ export function detectComponentType(node: QuasarNode): ComponentTypeInfo {
   
   const tagName = node.tagName.toLowerCase();
   
-  // Componentes Quasar
+  // Componentes Quasar - MODIFICAÇÃO AQUI
   if (tagName.startsWith('q-')) {
     const componentName = tagName.substring(2); // Remove 'q-'
+
+    // independentemente das classes aplicadas
+    if (componentName === 'btn') {
+      return { category: 'basic', type: 'btn' };
+    }
     
     // Componentes básicos
     if (['btn', 'icon', 'avatar', 'badge', 'chip', 'separator'].includes(componentName)) {
