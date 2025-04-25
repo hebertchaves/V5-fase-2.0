@@ -191,7 +191,18 @@ export async function processButtonComponent(node: QuasarNode, settings: PluginS
       console.error(`Erro ao processar label: ${error}`);
     }
   }
-  
+  // Verificar se contém full-width
+  if (props.class && props.class.includes('full-width')) {
+    // Aplicar diretamente ao buttonFrame
+    buttonFrame.layoutMode = "HORIZONTAL";
+    buttonFrame.primaryAxisSizingMode = "FILL_CONTAINER";
+    buttonFrame.counterAxisSizingMode = "FIXED";
+    
+    // Indicar na nomenclatura
+    buttonFrame.name = "q-btn (full-width)";
+  }
+
+
   // PASSO 3: Se não há label, processar nós filhos
   if (!hasText) {
     // Função recursiva para encontrar todos os ícones em um nó
@@ -346,14 +357,13 @@ export async function processButtonComponent(node: QuasarNode, settings: PluginS
     } catch (error) {
       console.error(`Erro ao adicionar texto padrão: ${error}`);
     }
-  }
-  
-  // MONTAR A ESTRUTURA HIERÁRQUICA
-  wrapperNode.appendChild(contentNode);  // content dentro do wrapper
-  buttonFrame.appendChild(wrapperNode);  // wrapper dentro do button principal
+  }  
   
   // Aplicar cores do Quasar (manter o código original)
   applyQuasarColors(buttonFrame, colorAnalysis, 'btn');
   
+  // MONTAR A ESTRUTURA HIERÁRQUICA
+  wrapperNode.appendChild(contentNode);  // content dentro do wrapper
+  buttonFrame.appendChild(wrapperNode);  // wrapper dentro do button principal
   return buttonFrame;
 }
