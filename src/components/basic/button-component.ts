@@ -13,13 +13,36 @@ import { processAvatarComponent } from '../basic/avatar-component';
  */
 export async function processButtonComponent(node: QuasarNode, settings: PluginSettings): Promise<FrameNode> {
   logDebug('button', `Processando botão: ${JSON.stringify(node.attributes)}`);
-
+  
+    // ESTRUTURA HIERÁRQUICA CORRETA - 1. Criar o wrapper
+    const wrapperNode = figma.createFrame();
+    wrapperNode.name = "q-btn__wrapper";
+    wrapperNode.layoutMode = "HORIZONTAL";
+    wrapperNode.primaryAxisSizingMode = "AUTO";
+    wrapperNode.counterAxisSizingMode = "AUTO";
+    wrapperNode.primaryAxisAlignItems = "CENTER";
+    wrapperNode.counterAxisAlignItems = "CENTER";
+    wrapperNode.fills = [{ type: 'SOLID', color: { r: 1, g: 1, b: 1 }, opacity: 0 }];
   // Criar frame principal para o q-btn
   const buttonFrame = figma.createFrame();
   buttonFrame.name = "q-btn";
   
   // Extrair propriedades e estilos
   const { props, styles } = extractStylesAndProps(node);
+
+if (props['full-width'] === 'true' || props['full-width'] === '') {
+  buttonFrame.primaryAxisSizingMode = "FILL";
+  
+  // Se for um frame pai, ajustar para STRETCH
+  if (buttonFrame.parent && 'layoutAlign' in buttonFrame) {
+    buttonFrame.layoutAlign = "STRETCH";
+  }
+  
+  // Ajustar o wrapper interno também
+  if (wrapperNode && 'layoutGrow' in wrapperNode) {
+    wrapperNode.layoutGrow = 1; // Faz o nó crescer para preencher o espaço disponível
+  }
+}
   
   // IMPORTANTE: Verificar full-width ANTES de configurar o layout, não depois
   const isFullWidth = props.fullWidth === 'true' || props.fullWidth === '' || 
@@ -35,23 +58,13 @@ export async function processButtonComponent(node: QuasarNode, settings: PluginS
   
   // Se for full-width, ajustar nome e largura
   if (isFullWidth) {
-    buttonFrame.name = "q-btn (full-width)";
-    // Usar uma largura fixa grande para simular full-width
-    buttonFrame.resize(400, buttonFrame.height);
+    buttonFrame.name = "q-btn (full-width)";   
   }
  
   // Analisar configurações de cor do componente
   const colorAnalysis = analyzeComponentColors(node);
   
-  // ESTRUTURA HIERÁRQUICA CORRETA - 1. Criar o wrapper
-  const wrapperNode = figma.createFrame();
-  wrapperNode.name = "q-btn__wrapper";
-  wrapperNode.layoutMode = "HORIZONTAL";
-  wrapperNode.primaryAxisSizingMode = "AUTO";
-  wrapperNode.counterAxisSizingMode = "AUTO";
-  wrapperNode.primaryAxisAlignItems = "CENTER";
-  wrapperNode.counterAxisAlignItems = "CENTER";
-  wrapperNode.fills = [{ type: 'SOLID', color: { r: 1, g: 1, b: 1 }, opacity: 0 }];
+
   
   // Ajustar padding com base nas propriedades
   if (props.dense === 'true' || props.dense === '') {
@@ -140,10 +153,83 @@ export async function processButtonComponent(node: QuasarNode, settings: PluginS
       contentNode.appendChild(textNode);
     }
   }
+    // Verificar se tem a classe full-width
+  const hasFullWidth = node.attributes?.class?.includes('full-width') || false;
+  // Aplicar full-width se necessário
+  if (hasFullWidth) {
+    // Ajustar o frame do botão para ocupar toda a largura
+    buttonFrame.layoutAlign = "STRETCH";
+    buttonFrame.layoutGrow = 1;
+    
+    // Também garantir que o wrapper interno seja ajustado
+    const wrapperNode = buttonFrame.findChild(n => n.name === 'q-btn__wrapper') as FrameNode;
+    if (wrapperNode) {
+      wrapperNode.layoutAlign = "STRETCH";
+      wrapperNode.layoutGrow = 1;
+    }
+    
+    // Definir explicitamente a largura com um valor alto
+    buttonFrame.resize(1000, buttonFrame.height);
+    
+    // Log para debug
+    console.log('Aplicando full-width ao botão');
+  }
   
   // MONTAR A ESTRUTURA HIERÁRQUICA - CRUCIAL
   wrapperNode.appendChild(contentNode);  // content dentro do wrapper
   buttonFrame.appendChild(wrapperNode);  // wrapper dentro do button principal
+
+  // Verificar ícone à esquerda
+if (props.icon) {
+  try {
+    // Criar um nó de ícone a partir do nome
+    const iconNode: QuasarNode = {
+      tagName: 'q-icon',
+      attributes: {
+        name: props.icon,
+        color: props.color || 'white', // Usar a mesma cor do botão ou branco por padrão
+        size: props.dense ? 'sm' : props.size || 'md'
+      },
+      childNodes: [],
+      parentContext: {
+        tagName: 'q-btn',
+        attributes: node.attributes,
+        isPrimaryComponent: true
+      }
+    };
+    
+    const iconComponent = await processIconComponent(iconNode, settings);
+    contentNode.insertChild(0, iconComponent); // Adicionar no início do conteúdo
+  } catch (error) {
+    console.error(`Erro ao processar ícone à esquerda: ${error}`);
+  }
+}
+
+// Verificar ícone à direita
+if (props['icon-right']) {
+  try {
+    // Similar ao ícone à esquerda, mas com nome diferente
+    const iconNode: QuasarNode = {
+      tagName: 'q-icon',
+      attributes: {
+        name: props['icon-right'],
+        color: props.color || 'white',
+        size: props.dense ? 'sm' : props.size || 'md'
+      },
+      childNodes: [],
+      parentContext: {
+        tagName: 'q-btn',
+        attributes: node.attributes,
+        isPrimaryComponent: true
+      }
+    };
+    
+    const iconComponent = await processIconComponent(iconNode, settings);
+    contentNode.appendChild(iconComponent); // Adicionar no final do conteúdo
+  } catch (error) {
+    console.error(`Erro ao processar ícone à direita: ${error}`);
+  }
+}
   
   // Aplicar cores do Quasar diretamente
   if (colorAnalysis.mainColor) {

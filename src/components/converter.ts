@@ -6,7 +6,7 @@ import { detectComponentType } from '../utils/quasar-utils';
 import { componentService } from '../utils/component-service';
 import { analyzeComponentColors, getQuasarColor, applyQuasarColors } from '../utils/color-utils';
 import { logInfo, logError, logDebug } from '../utils/logger';
-import { processQuasarClass } from '../utils/style-utils';
+import { classes } from '../utils/parser-utils';
 import { processButtonComponent } from '../../src/components/basic/button-component';
 
 
@@ -302,7 +302,20 @@ async function processNodeTree(node: QuasarNode, parentFigmaNode: FrameNode, set
       // Fallback para processador genérico abaixo
     }
   }
+
+  const classes = node.attributes.class.split(/\s+/);
   
+  // Ordenar classes para aplicar na ordem correta
+  const sortedClasses = classes.sort((a, b) => {
+  const order = ['full-width', 'full-height', 'row', 'column', 'q-pa-', 'q-ma-', 'q-gutter-', 'text-', 'bg-'];
+  const getOrder = (className: string) => {
+    for (let i = 0; i < order.length; i++) {
+      if (className.startsWith(order[i])) return i;
+    }
+    return order.length;
+  };
+  return getOrder(a) - getOrder(b);
+});
   // Processamento genérico (apenas para nós que não foram processados por processadores específicos)
   figmaNode = await processGenericComponent(node, settings);
   parentFigmaNode.appendChild(figmaNode);

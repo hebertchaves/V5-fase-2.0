@@ -28,12 +28,7 @@ export function isInsidePrimaryComponent(node: QuasarNode): boolean {
  * MODIFICADO: Melhor detecção do texto do botão
  */
 export function getButtonText(node: QuasarNode): string {
-  // Se tiver label, usar diretamente
-  if (node.attributes && node.attributes.label) {
-    return node.attributes.label;
-  }
-  
-  // Verificar se tem ícone sem texto
+  // Verificar atributo label
   if (node.attributes) {
     if ((node.attributes.round === 'true' || node.attributes.round === '') && 
         node.attributes.icon && 
@@ -42,23 +37,14 @@ export function getButtonText(node: QuasarNode): string {
     }
   }
   
-  // Buscar texto nos filhos, mas evitar q-tooltip e outros componentes filhos
+  // Verificar conteúdo de texto direto
   let textContent = '';
   for (const child of node.childNodes) {
-    // Pular componentes Quasar filhos como q-tooltip
-    if (child.tagName && child.tagName.startsWith('q-')) {
-      continue;
-    }
-    
     if (child.tagName === '#text' && child.text) {
       textContent += child.text.trim() + ' ';
     } else if (child.childNodes && child.childNodes.length > 0) {
-      // Recursividade para filhos, mas ainda evitando componentes Quasar
+      // Buscar texto em filhos de forma recursiva
       for (const grandChild of child.childNodes) {
-        if (grandChild.tagName && grandChild.tagName.startsWith('q-')) {
-          continue;
-        }
-        
         if (grandChild.tagName === '#text' && grandChild.text) {
           textContent += grandChild.text.trim() + ' ';
         }
@@ -219,6 +205,9 @@ export function detectIconClasses(node: QuasarNode): {hasIcon: boolean, iconName
 export function detectComponentType(node: QuasarNode): ComponentTypeInfo {
   // Console logging para debug
   console.log('Detectando tipo para componente:', node.tagName);
+  if (node.tagName.toLowerCase() === 'q-btn') {
+    return { category: 'basic', type: 'btn' };
+  }
   
   if (!node.tagName) {
     return { category: 'unknown', type: 'generic' };
@@ -226,14 +215,9 @@ export function detectComponentType(node: QuasarNode): ComponentTypeInfo {
   
   const tagName = node.tagName.toLowerCase();
   
-  // Componentes Quasar - MODIFICAÇÃO AQUI
+  // Componentes Quasar
   if (tagName.startsWith('q-')) {
     const componentName = tagName.substring(2); // Remove 'q-'
-
-    // independentemente das classes aplicadas
-    if (componentName === 'btn') {
-      return { category: 'basic', type: 'btn' };
-    }
     
     // Componentes básicos
     if (['btn', 'icon', 'avatar', 'badge', 'chip', 'separator'].includes(componentName)) {
