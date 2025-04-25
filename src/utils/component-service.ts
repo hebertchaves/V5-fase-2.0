@@ -19,6 +19,19 @@ class ComponentService {
     return ComponentService.instance;
   }
 
+/**
+ * Verifica se existe um processador específico para um componente
+ */
+public hasProcessorForComponent(category: string, type: string): boolean {
+  const specificProcessorKey = `${type}Processor`;
+  if (this.processors[specificProcessorKey]) {
+    return true;
+  }
+  
+  const categoryProcessorKey = `${category}Processor`;
+  return !!this.processors[categoryProcessorKey];
+}
+
   /**
    * Inicializa o serviço de componentes
    */
@@ -27,7 +40,9 @@ class ComponentService {
     
     // Registrar mapeamento de componentes para suas categorias
     this.registerComponentType('q-btn', 'basic');
-    this.registerComponentType('q-card', 'layout');
+    this.registerComponentType('q-icon', 'basic');
+    this.registerComponentType('q-separator', 'basic');
+    this.registerComponentType('q-chip', 'basic');    
     this.registerComponentType('q-input', 'form');
     this.registerComponentType('q-select', 'form');
     this.registerComponentType('q-checkbox', 'form');
@@ -40,16 +55,14 @@ class ComponentService {
     this.registerComponentType('q-tab', 'navigation');
     this.registerComponentType('q-tab-panels', 'navigation');
     this.registerComponentType('q-tab-panel', 'navigation');
+    this.registerComponentType('q-breadcrumbs', 'navigation');
     this.registerComponentType('q-page', 'layout');
     this.registerComponentType('q-layout', 'layout');
     this.registerComponentType('q-header', 'layout');
     this.registerComponentType('q-footer', 'layout');
     this.registerComponentType('q-drawer', 'layout');
     this.registerComponentType('q-toolbar', 'layout');
-    this.registerComponentType('q-icon', 'basic');
-    this.registerComponentType('q-separator', 'basic');
-    this.registerComponentType('q-chip', 'basic');
-    this.registerComponentType('q-breadcrumbs', 'navigation');
+    this.registerComponentType('q-card', 'layout');    
     this.registerComponentType('q-dialog', 'popup');
     this.registerComponentType('q-tooltip', 'popup');
     

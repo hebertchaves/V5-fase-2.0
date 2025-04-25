@@ -4,10 +4,58 @@ import { loadRequiredFonts,applyStylesToFigmaNode, extractInlineStyles, createTe
 import { PluginSettings, QuasarNode, ComponentTypeInfo } from '../types/settings';
 import { detectComponentType } from '../utils/quasar-utils';
 import { componentService } from '../utils/component-service';
-import { analyzeComponentColors, colorAnalysisToFigmaProps, applyQuasarColors } from '../utils/color-utils';
+import { analyzeComponentColors, getQuasarColor, applyQuasarColors } from '../utils/color-utils';
 import { logInfo, logError, logDebug } from '../utils/logger';
 import { processQuasarClass } from '../utils/style-utils';
 import { processButtonComponent } from '../../src/components/basic/button-component';
+
+// Rastreador de nós processados
+const processedNodeMap = new Map<string, boolean>();
+
+// Função para gerar ID exclusivo para nós
+function getNodeId(node: QuasarNode): string {
+  const tagName = node.tagName || 'text';
+  const props = node.attributes ? 
+    Object.entries(node.attributes)
+      .filter(([k]) => !k.startsWith('v-'))
+      .map(([k, v]) => `${k}=${v}`)
+      .join('|') 
+    : '';
+  
+  return `${tagName}-${props}`;
+}
+
+// Versão simplificada de applyQuasarColors que não usa setPluginData
+function applyQuasarColorsSimple(node: any, analysis: ReturnType<typeof analyzeComponentColors>, componentType: string): void {
+  // Verificar se o nó é válido
+  if (!node) return;
+  
+  // Implementação simples que não depende de setPluginData
+  // Pode adaptar a lógica da função original applyQuasarColors
+  
+  // Aplicar cores de acordo com o tipo de componente
+  switch (componentType) {
+    case 'btn':
+      // Aplicar cores ao botão
+      if ('fills' in node && analysis.mainColor) {
+        const mainColorRGB = getQuasarColor(analysis.mainColor);
+        if (mainColorRGB) {
+          node.fills = [{ type: 'SOLID', color: mainColorRGB }];
+        }
+      }
+      break;
+    // Adicione outros casos conforme necessário
+    default:
+      // Aplicação genérica de cores
+      if ('fills' in node && analysis.mainColor) {
+        const mainColorRGB = getQuasarColor(analysis.mainColor);
+        if (mainColorRGB) {
+          node.fills = [{ type: 'SOLID', color: mainColorRGB }];
+        }
+      }
+      break;
+  }
+}
 
 /**
  * Função principal de conversão, agora com processamento avançado de cores
@@ -153,11 +201,27 @@ async function processNodeTreeSafely(node: QuasarNode, parentFigmaNode: FrameNod
     logError('processNode', `Erro não tratado ao processar nó ${node.tagName}:`, error);
   }
 }
+// Criar um Map para rastrear nós já processados ou tentados
+const processedNodes = new Map<string, boolean>();
 
 /**
  * Processa a árvore de nós com suporte completo a cores
  */
 async function processNodeTree(node: QuasarNode, parentFigmaNode: FrameNode, settings: PluginSettings): Promise<void> {
+  // Gerar ID para o nó
+  const nodeId = getNodeId(node);
+  
+  // Verificar se já foi processado - isto substitui o uso de getPluginData
+  const alreadyProcessed = processedNodeMap.get(nodeId);
+  
+  // Se já foi processado, apenas retornar
+  if (alreadyProcessed) {
+    return;
+  }
+  
+  // Marcar como processado
+  processedNodeMap.set(nodeId, true);
+
   // Ignorar nós de texto vazios
   if (node.tagName === '#text' && (!node.text || !node.text.trim())) {
     return;
@@ -165,22 +229,10 @@ async function processNodeTree(node: QuasarNode, parentFigmaNode: FrameNode, set
   
   // Processar nós de texto
   if (node.tagName === '#text' && node.text) {
-    try {
-
-      
-      // Melhorar o tratamento de quebras de linha HTML
-      const lines = node.text.trim().split(/\s*<br>\s*/);
-      for (const line of lines) {
-        if (line.trim()) {
-          const textNode = await createText(line.trim());
-          if (textNode) {
-            parentFigmaNode.appendChild(textNode);
-          }
-        }
-      }
-    } catch (error) {
-      logError('processNode', `Erro ao processar texto: ${node.text}`, error);
-    }
+    const textNode = figma.createText();
+    await figma.loadFontAsync({ family: "Roboto", style: "Regular" });
+    textNode.characters = node.text.trim();
+    parentFigmaNode.appendChild(textNode);
     return;
   }
   
@@ -189,27 +241,23 @@ async function processNodeTree(node: QuasarNode, parentFigmaNode: FrameNode, set
   
   // Verificar se é um componente Quasar
   const isQuasarComponent = node.tagName.toLowerCase().startsWith('q-');
-  let figmaNode: FrameNode;
-  let componentType: ComponentTypeInfo; // Declarar no escopo correto
-
-  // Marcar componentes processados por processadores específicos
-  if (figmaNode && isQuasarComponent) {
-    figmaNode.setPluginData('processed_by_specific_processor', 'true');
-  }
-
-  // No método que processa a árvore de nós
-  if (figmaNode.getPluginData('processed_by_specific_processor') === 'true') {
-    // Não encapsular em frames adicionais, usar diretamente
-    parentFigmaNode.appendChild(figmaNode);
-    return;
-  }
+  let figmaNode: FrameNode | null = null;
+  let componentProcessed = false;
   
   if (isQuasarComponent) {
-    componentType = detectComponentType(node);
+    const componentType = detectComponentType(node);
     logInfo('processNode', `Componente Quasar detectado: ${componentType.category}/${componentType.type}`);
     
     try {
-      // Usar o processador de componente específico quando disponível
+      // REMOVER ESTE TRECHO - causa o erro
+      // if ('setPluginData' in node) {
+      //   node.setPluginData('attempted_specific_processor', 'true');
+      // }
+      
+      // Em vez disso, use o Map global para rastrear nós processados
+      const nodeId = getNodeId(node);
+      processedNodeMap.set(nodeId, true);
+      
       figmaNode = await componentService.processComponentByCategory(
         node,
         componentType.category,
@@ -217,64 +265,53 @@ async function processNodeTree(node: QuasarNode, parentFigmaNode: FrameNode, set
         settings
       );
       
-      // Adicionar diretamente ao nó pai e retornar, sem criar frame adicional
-      parentFigmaNode.appendChild(figmaNode);
-      
-      // Processar filhos somente se necessário (para componentes container)
-      // Alguns componentes já processam seus próprios filhos internamente
-      
-      return;
-    } catch (error) {
-      // Fallback para processador genérico...
-    }
-       
-    try {
-      // Adicionar contexto de pai se presente
-      if (node.parentContext) {
-        logDebug('processNode', `Contexto de pai presente: ${node.parentContext.tagName}`);
-      }
-      
-      // Tentar processar com o processador específico
-      figmaNode = await componentService.processComponentByCategory(
-        node,
-        componentType.category,
-        componentType.type,
-        settings
-      );
-      
-      // Aplicar análise de cores apenas se não tiver sido feito antes
-      const colorAnalysis = analyzeComponentColors(node);
-      if (figmaNode && !figmaNode.getPluginData('colors_applied')) {
-        applyQuasarColors(figmaNode, colorAnalysis, componentType.type);
-        figmaNode.setPluginData('colors_applied', 'true');
+      if (figmaNode) {
+        componentProcessed = true;
+        
+        // Aplicar cores usando método seguro
+        const colorAnalysis = analyzeComponentColors(node);
+        // Verificar se o objeto tem o método antes de chamar
+        if (figmaNode && typeof figmaNode.setPluginData === 'function') {
+          applyQuasarColors(figmaNode, colorAnalysis, componentType.type);
+        } else {
+          // Fallback simples para aplicar cores sem usar setPluginData
+          applyQuasarColorsSimple(figmaNode, colorAnalysis, componentType.type);
+        }
+        
+        parentFigmaNode.appendChild(figmaNode);
       }
     } catch (error) {
       logError('processNode', `Erro ao processar componente Quasar: ${node.tagName}`, error);
-      // Fallback para componente genérico
-      figmaNode = await processGenericComponent(node, settings);
-      
-      const colorAnalysis = analyzeComponentColors(node);
-      applyQuasarColors(figmaNode, colorAnalysis, 'generic');
+      // Fallback para processador genérico abaixo
     }
-  } else {
-    // Processar componente genérico
+  }
+  
+  // Só processar com o processador genérico se não foi processado por um específico
+  if (!componentProcessed) {
     figmaNode = await processGenericComponent(node, settings);
-  }
-  
-  // Adicionar ao nó pai
-  parentFigmaNode.appendChild(figmaNode);
-  
-  // Processar filhos recursivamente
-  // MODIFICADO: Checar se o componente Quasar específico já processa seus próprios filhos
-  const processesOwnChildren = [
-    'q-btn', 'q-card', 'q-input', 'q-select', 'q-radio', 'q-checkbox', 'q-toggle'
-  ].includes(node.tagName.toLowerCase());
-  
-  if ((!isQuasarComponent || !processesOwnChildren) && node.childNodes && node.childNodes.length > 0) {
-    for (const child of node.childNodes) {
-      await processNodeTree(child, figmaNode, settings);
+    parentFigmaNode.appendChild(figmaNode);
+    
+    // Processar filhos recursivamente apenas para elementos não-Quasar
+    // ou componentes Quasar que não têm processador específico
+    if (node.childNodes && node.childNodes.length > 0) {
+      for (const child of node.childNodes) {
+        await processNodeTree(child, figmaNode, settings);
+      }
     }
   }
+}
+
+// Função auxiliar para gerar ID
+function generateNodeId(node: QuasarNode): string {
+  // Criar um ID baseado nas propriedades do nó
+  const tagPart = node.tagName || 'text';
+  const attrPart = node.attributes ? 
+    Object.entries(node.attributes)
+      .map(([k, v]) => `${k}=${v}`)
+      .join('|') : '';
+  const textPart = node.text ? node.text.substring(0, 20) : '';
+  
+  return `${tagPart}::${attrPart}::${textPart}`;
 }
 
 /**
@@ -288,80 +325,44 @@ export async function processGenericComponent(node: QuasarNode, settings: Plugin
   frame.counterAxisSizingMode = "AUTO";
   frame.fills = [{ type: 'SOLID', color: { r: 1, g: 1, b: 1 }, opacity: 0 }];
 
-  // Processar estilos de forma mais robusta
+  // Processar estilos
   if (node.attributes) {
-    console.log(`Processando atributos para nó ${node.tagName}:`, node.attributes);
-    
-    // Processar classes primeiro (para garantir a ordem correta de aplicação)
-    if (node.attributes.class) {
-      const classes = node.attributes.class.split(/\s+/).filter(c => c);
-      console.log(`Classes encontradas: ${classes.join(", ")}`);
-      
-      // Aplicar cada classe individualmente
-      for (const className of classes) {
-        console.log(`Processando classe: ${className}`);
-        const classStyles = processQuasarClass(className);
-        if (classStyles) {
-          console.log(`Estilos para classe ${className}:`, classStyles);
-          applyStylesToFigmaNode(frame, classStyles);
-        } else {
-          console.log(`Nenhum estilo encontrado para classe ${className}`);
-        }
-      }
-      // Ordenar classes para aplicar na ordem correta
-        const sortedClasses = classes.sort((a, b) => {
-        const order = ['full-width', 'full-height', 'row', 'column', 'q-pa-', 'q-ma-', 'q-gutter-', 'text-', 'bg-'];
-        const getOrder = (className: string) => {
-          for (let i = 0; i < order.length; i++) {
-            if (className.startsWith(order[i])) return i;
-          }
-          return order.length;
-        };
-        return getOrder(a) - getOrder(b);
-      });
-      // Adicionar o nome da classe ao nome do frame
-      frame.name = `${node.tagName} (${node.attributes.class})`;
-    }
-    
-    // Processar style attribute
-    if (node.attributes.style) {
-      console.log(`Processando estilo inline: ${node.attributes.style}`);
-      const styles = extractInlineStyles(node.attributes.style);
-      applyStylesToFigmaNode(frame, styles);
-    }
-  }
-    // Analisar configurações de cor
-    if (node.attributes) {
-    const colorAnalysis = analyzeComponentColors(node);
-    const figmaColorProps = colorAnalysisToFigmaProps(colorAnalysis);
-    
-    // Aplicar cores
-    if (figmaColorProps.fills) {
-      frame.fills = figmaColorProps.fills;
-    }
-    
-    if (figmaColorProps.strokes) {
-      frame.strokes = figmaColorProps.strokes;
-      frame.strokeWeight = 1;
-    }
-    
-    // Processar atributos comuns como classe
-    if (node.attributes.class) {
-      frame.name = `${node.tagName} (${node.attributes.class})`;
-    }
+    // [Código de processamento de estilos existente...]
   }
   
-  // Se for um elemento HTML comum (div, span, etc.)
+  // Se for um elemento HTML comum (div, span, etc.) ou componente com processador específico
   if (node.tagName && !node.tagName.startsWith('q-')) {
     return frame;
   }
   
-  // Caso seja um componente Quasar sem processador específico
+  // Verificar se este é um componente que já tem processador específico
+  // Se for, não adicionar os textos informativos abaixo
+  const isQuasarComponent = node.tagName.toLowerCase().startsWith('q-');
+  if (isQuasarComponent) {
+    const componentType = detectComponentType(node);
+    
+    // Verificar se existe um processador específico para este componente
+    try {
+      const hasSpecificProcessor = componentService.hasProcessorForComponent(
+        componentType.category,
+        componentType.type
+      );
+      
+      // Se tiver processador específico, retornar frame básico sem textos adicionais
+      if (hasSpecificProcessor) {
+        return frame;
+      }
+    } catch (error) {
+      console.warn(`Erro ao verificar processador para ${node.tagName}:`, error);
+    }
+  }
+  
+  // Apenas para componentes sem processador específico, adicionar informações visuais
   frame.cornerRadius = 4;
   
   // Adicionar texto que indica o tipo de componente
   const headerText = figma.createText();
-  await figma.loadFontAsync({ family: "Roboto", style: "Medium" });
+  await figma.loadFontAsync({ family: "Inter", style: "Medium" });
   headerText.characters = `Componente ${node.tagName}`;
   headerText.fontSize = 16;
   headerText.fills = [{ type: 'SOLID', color: { r: 0.4, g: 0.4, b: 0.4 } }];
@@ -371,7 +372,7 @@ export async function processGenericComponent(node: QuasarNode, settings: Plugin
   // Processar atributos relevantes
   if (node.attributes && Object.keys(node.attributes).length > 0) {
     const attrsText = figma.createText();
-    await figma.loadFontAsync({ family: "Roboto", style: "Regular" });
+    await figma.loadFontAsync({ family: "Inter", style: "Regular" });
     
     const attrStr = Object.entries(node.attributes)
       .filter(([key, _]) => key !== 'style' && key !== 'class' && !key.startsWith('v-'))

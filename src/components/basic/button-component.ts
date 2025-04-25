@@ -3,7 +3,7 @@ import { QuasarNode, PluginSettings } from '../../types/settings';
 import { extractStylesAndProps, getButtonText } from '../../utils/quasar-utils';
 import {  createText } from '../../utils/figma-utils';
 import {  logDebug } from '../../utils/logger';
-import { analyzeComponentColors, applyQuasarColors } from '../../utils/color-utils';
+import { analyzeComponentColors, getQuasarColor, getContrastingTextColor, applyQuasarColors } from '../../utils/color-utils';
 import { processIconComponent } from './icon-component';
 import { processAvatarComponent } from '../basic/avatar-component';
 
@@ -23,30 +23,33 @@ function getFontSizeForButtonSize(size?: string): number {
     default: return 14;
   }
 }
-
+// Função auxiliar para encontrar nós de texto em uma estrutura
+function findTextNodesInChildren(node: FrameNode): TextNode[] {
+  const textNodes: TextNode[] = [];
+  
+  if (!node || !('children' in node)) {
+    return textNodes;
+  }
+  
+  for (const child of node.children) {
+    if (child.type === 'TEXT') {
+      textNodes.push(child as TextNode);
+    } else if ('children' in child) {
+      // Recursivamente buscar em nós filhos
+      const childTextNodes = findTextNodesInChildren(child as FrameNode);
+      textNodes.push(...childTextNodes);
+    }
+  }
+  
+  return textNodes;
+}
 /**
  * Processa um componente de botão Quasar (q-btn)
  */
 export async function processButtonComponent(node: QuasarNode, settings: PluginSettings): Promise<FrameNode> {
-  logDebug('button', `Processando botão: ${JSON.stringify(node.attributes)}`);
-
-  // Verificar se tem a classe full-width
-  const hasFullWidth = node.attributes?.class?.includes('full-width') || false;
-
   // Criar frame principal para o q-btn
   const buttonFrame = figma.createFrame();
   buttonFrame.name = "q-btn";
-  
-  // Extrair propriedades e estilos
-  const { props, styles } = extractStylesAndProps(node);
-  
-  // IMPORTANTE: Verificar full-width aqui e alterar o modo e o nome adequadamente
-  let isFullWidth = false;
-  if (props.class && props.class.includes('full-width')) {
-    isFullWidth = true;
-    buttonFrame.name = "q-btn (full-width)";
-    // Não altere o layoutMode ainda, faremos isso após criar a estrutura completa
-  }
   
   // Configuração básica do botão
   buttonFrame.layoutMode = "HORIZONTAL";
@@ -55,48 +58,20 @@ export async function processButtonComponent(node: QuasarNode, settings: PluginS
   buttonFrame.primaryAxisAlignItems = "CENTER";
   buttonFrame.counterAxisAlignItems = "CENTER";
   buttonFrame.cornerRadius = 4;
-
-  // Aplicar full-width se necessário
-  if (hasFullWidth) {
-    // Ajustar o frame do botão para ocupar toda a largura
-    buttonFrame.layoutAlign = "STRETCH";
-    buttonFrame.layoutGrow = 1;
-    buttonFrame.primaryAxisSizingMode = "FILL_CONTAINER";
-    
-    // Também garantir que o wrapper interno seja ajustado
-    const wrapperNode = buttonFrame.findChild(n => n.name === 'q-btn__wrapper') as FrameNode;
-    if (wrapperNode) {
-      wrapperNode.layoutAlign = "STRETCH";
-      wrapperNode.layoutGrow = 1;
-      wrapperNode.primaryAxisSizingMode = "FILL_CONTAINER";
-    }
-    
-    // Definir explicitamente a largura com um valor alto
-    buttonFrame.resize(1000, buttonFrame.height);
-    
-    // Log para debug
-    console.log('Aplicando full-width ao botão');
-  }
   
-  // Analisar configurações de cor do componente
-  const colorAnalysis = analyzeComponentColors(node);
-
-  // Abordagem corrigida para fullWidth
-  if (props.fullWidth === 'true' || props.fullWidth === '') {
-    // Aplicar diretamente ao buttonFrame em vez de criar um novo frame
-    buttonFrame.primaryAxisSizingMode = "FILL_CONTAINER";
-    buttonFrame.counterAxisSizingMode = "FILL_CONTAINER";
-    // Marcar como fullWidth na nomenclatura
+  // Extrair propriedades e estilos
+  const { props, styles } = extractStylesAndProps(node);
+  
+  // IMPORTANTE: Verificar full-width sem criar camada adicional
+  // Apenas modificar o nome e aplicar um tamanho maior
+  if (props.fullWidth === 'true' || props.fullWidth === '' || 
+      (props.class && props.class.includes('full-width'))) {
     buttonFrame.name = "q-btn (full-width)";
-  }
-
-  // Se precisar definir uma largura específica
-  if ('block' in props || props.block === 'true' || props.block === '') {
-    // Definir largura em vez de criar novo frame
-    buttonFrame.resize(240, buttonFrame.height); // Largura padrão para botões de bloco
+    // Definir uma largura maior mas usar valor válido para primaryAxisSizingMode
+    buttonFrame.resize(300, buttonFrame.height);
   }
   
-  // ESTRUTURA HIERÁRQUICA CORRETA - 1. Criar o wrapper
+  // ESTRUTURA HIERÁRQUICA CORRETA - Manter a estrutura
   const wrapperNode = figma.createFrame();
   wrapperNode.name = "q-btn__wrapper";
   wrapperNode.layoutMode = "HORIZONTAL";
@@ -384,18 +359,66 @@ export async function processButtonComponent(node: QuasarNode, settings: PluginS
   // MONTAR A ESTRUTURA HIERÁRQUICA
   wrapperNode.appendChild(contentNode);  // content dentro do wrapper
   buttonFrame.appendChild(wrapperNode);  // wrapper dentro do button principal
+
+  // Verificar se tem a classe full-width
+  const hasFullWidth = node.attributes?.class?.includes('full-width') || false;
+
+  // Aplicar full-width se necessário
+  if (hasFullWidth) {
+    // Ajustar o frame do botão para ocupar toda a largura
+    buttonFrame.layoutAlign = "STRETCH";
+    buttonFrame.layoutGrow = 1;
+    buttonFrame.primaryAxisSizingMode = "FILL_CONTAINER";
+    
+    // Também garantir que o wrapper interno seja ajustado
+    const wrapperNode = buttonFrame.findChild(n => n.name === 'q-btn__wrapper') as FrameNode;
+    if (wrapperNode) {
+      wrapperNode.layoutAlign = "STRETCH";
+      wrapperNode.layoutGrow = 1;
+      wrapperNode.primaryAxisSizingMode = "FILL_CONTAINER";
+    }
+    
+    // Definir explicitamente a largura com um valor alto
+    buttonFrame.resize(1000, buttonFrame.height);
+    
+    // Log para debug
+    console.log('Aplicando full-width ao botão');
+  }
   
   // IMPORTANTE: Aplicar full-width SOMENTE APÓS a estrutura estar completa
-  if (isFullWidth) {
+  if (hasFullWidth) {
     buttonFrame.primaryAxisSizingMode = "FILL_CONTAINER";
     // Ajustar para ocupar toda a largura do contêiner
     if (buttonFrame.parent) {
       buttonFrame.layoutAlign = "STRETCH";
     }
   }
+
+  // Analisar configurações de cor do componente
+  const colorAnalysis = analyzeComponentColors(node);
+  
+  // Aplicar cores diretamente, sem depender de plugin data
+  if (colorAnalysis.mainColor) {
+    const mainColorRGB = getQuasarColor(colorAnalysis.mainColor);
+    if (mainColorRGB) {
+      buttonFrame.fills = [{ type: 'SOLID', color: mainColorRGB }];
+      
+      // Também ajustar cor do texto conforme necessário
+      // Encontrar o texto dentro da estrutura e aplicar cor contrastante
+      const textNodes = findTextNodesInChildren(wrapperNode);
+      for (const textNode of textNodes) {
+        textNode.fills = [{ 
+          type: 'SOLID', 
+          color: getContrastingTextColor(mainColorRGB) 
+        }];
+      }
+    }
+  }
   
   // Aplicar cores do Quasar
   applyQuasarColors(buttonFrame, colorAnalysis, 'btn');
+
+  
 
   return buttonFrame;
 }
