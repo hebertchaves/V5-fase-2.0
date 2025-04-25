@@ -30,6 +30,14 @@ export function isInsidePrimaryComponent(node: QuasarNode): boolean {
 export function getButtonText(node: QuasarNode): string {
   // Verificar atributo label
   if (node.attributes) {
+    // Verificação segura para a classe
+    const classStr = node.attributes.class;
+    if (classStr && typeof classStr === 'string') {
+      const classes = classStr.split(/\s+/).filter(c => c);
+      // Resto do processamento...
+    } else {
+      console.log(`Nó ${node.tagName} não possui classes para processar`);
+    }
     if ((node.attributes.round === 'true' || node.attributes.round === '') && 
         node.attributes.icon && 
         !node.attributes.label) {
@@ -74,20 +82,23 @@ export function extractStylesAndProps(node: QuasarNode) {
   const props: Record<string, string> = {};
   const styles: Record<string, any> = {};
   
-  // Extrair atributos do nó
-  if (node.attributes) {
+  // Verificar se node.attributes existe
+  if (node && node.attributes) {
     Object.entries(node.attributes).forEach(([attr, value]) => {
-      // Props do Quasar ou atributos personalizados v-model, :value, etc.
-      if (attr.startsWith(':') || attr.startsWith('v-')) {
-        const propName = attr.replace(/^[v:][-:]?/, '');
-        props[propName] = value;
-      } else if (attr === 'style') {
-        const styleObj = parseInlineStyles(value);
-        Object.assign(styles, styleObj);
-      } else if (attr === 'class') {
-        props['class'] = value;
-      } else {
-        props[attr] = value;
+      // Verificar se value é definido
+      if (value !== undefined) {
+        // Props do Quasar ou atributos personalizados v-model, :value, etc.
+        if (attr.startsWith(':') || attr.startsWith('v-')) {
+          const propName = attr.replace(/^[v:][-:]?/, '');
+          props[propName] = value;
+        } else if (attr === 'style') {
+          const styleObj = parseInlineStyles(value);
+          Object.assign(styles, styleObj);
+        } else if (attr === 'class') {
+          props['class'] = value;
+        } else {
+          props[attr] = value;
+        }
       }
     });
   }
@@ -194,9 +205,20 @@ export function detectIconClasses(node: QuasarNode): {hasIcon: boolean, iconName
     if (cls === 'q-btn--icon-right') {
       return {hasIcon: true, position: 'right'};
     }
+        // Função para processar classes com segurança
+        function processClassesSafely(classStr: string | undefined): string[] {
+          if (!classStr || typeof classStr !== 'string') {
+            return [];
+          }
+          return classStr.split(/\s+/).filter(Boolean);
+        }
+    
+        // Usar em qualquer lugar que processe classes
+        const classes = processClassesSafely(node.attributes?.class);
   }
   
   return {hasIcon: false};
+  
 }
 
 /**

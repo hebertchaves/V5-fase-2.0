@@ -6,7 +6,7 @@ import { detectComponentType } from '../utils/quasar-utils';
 import { componentService } from '../utils/component-service';
 import { analyzeComponentColors, getQuasarColor, applyQuasarColors } from '../utils/color-utils';
 import { logInfo, logError, logDebug } from '../utils/logger';
-import { classes } from '../utils/parser-utils';
+import { processQuasarClass } from '../utils/style-utils';
 import { processButtonComponent } from '../../src/components/basic/button-component';
 
 
@@ -316,6 +316,7 @@ async function processNodeTree(node: QuasarNode, parentFigmaNode: FrameNode, set
   };
   return getOrder(a) - getOrder(b);
 });
+  
   // Processamento genérico (apenas para nós que não foram processados por processadores específicos)
   figmaNode = await processGenericComponent(node, settings);
   parentFigmaNode.appendChild(figmaNode);
@@ -354,7 +355,48 @@ export async function processGenericComponent(node: QuasarNode, settings: Plugin
 
   // Processar estilos
   if (node.attributes) {
-    // [Código de processamento de estilos existente...]
+    // Verificação segura para a classe
+    const classStr = node.attributes.class;
+    if (classStr && typeof classStr === 'string') {
+      const classes = classStr.split(/\s+/).filter(c => c);
+      // Resto do processamento...
+    } else {
+      console.log(`Nó ${node.tagName} não possui classes para processar`);
+    }
+    // Processar classes primeiro
+    if (node.attributes.class) {
+      const classes = node.attributes.class.split(/\s+/).filter(c => c);
+      
+      // Log para diagnóstico
+      console.log(`Processando classes para ${node.tagName}:`, classes);
+      
+      for (const className of classes) {
+        console.log(`Processando classe: ${className}`);
+        const classStyles = processQuasarClass(className);
+        if (classStyles) {
+          console.log(`Estilos encontrados para ${className}:`, classStyles);
+          applyStylesToFigmaNode(frame, classStyles);
+        } else {
+          console.log(`Nenhum estilo encontrado para ${className}`);
+        }
+      }
+    }
+    // Função para processar classes com segurança
+    function processClassesSafely(classStr: string | undefined): string[] {
+      if (!classStr || typeof classStr !== 'string') {
+        return [];
+      }
+      return classStr.split(/\s+/).filter(Boolean);
+    }
+
+    // Usar em qualquer lugar que processe classes
+    const classes = processClassesSafely(node.attributes?.class);
+    
+    // Processar style attribute (se existir)
+    if (node.attributes.style) {
+      const styles = extractInlineStyles(node.attributes.style);
+      applyStylesToFigmaNode(frame, styles);
+    }
   }
   
   // Se for um elemento HTML comum (div, span, etc.) ou componente com processador específico

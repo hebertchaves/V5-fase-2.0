@@ -6,6 +6,33 @@ import quasarCssClasses, { processQuasarDynamicClass } from '../data/quasar-css-
  * Processa uma classe do Quasar para extrair valores de estilo
  */
 export function processQuasarClass(className: string): Record<string, any> | null {
+  console.log(`[DEBUG] Processando classe: ${className}`);
+  
+  // Verificar se é uma classe de padding ou gutter do Quasar
+  if (className.startsWith('q-pa-') || className.startsWith('q-ma-') || className.startsWith('q-gutter-')) {
+    console.log(`[DEBUG] Classe Quasar detectada: ${className}`);
+  }
+
+  // Verificar se é uma classe estática mapeada
+  if (quasarCssClasses[className]) {
+    return quasarCssClasses[className];
+  }
+
+  // Verificar caso especial para full-width
+  if (className === 'full-width') {
+    return processFullDimensionClass(className);
+  }
+
+  // Processar classes de espaçamento (q-pa-*, q-ma-*)
+  if (className.match(/^q-([mp])([atrblxy])?-([a-z]+)$/)) {
+    return processSpacingClass(className);
+  }
+
+  // Processar classes de gutter
+  if (className.match(/^q-gutter-([a-z]+)$/) || className.match(/^q-gutter-([xy])?-([a-z]+)$/)) {
+    return processGutterClass(className);
+  }
+
   // Mostrar debug da classe sendo processada
   console.log(`Processando classe: ${className}`);
   // Em processQuasarClass

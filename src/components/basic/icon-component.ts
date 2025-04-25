@@ -9,6 +9,19 @@ import { logDebug } from '../../utils/logger.js';
  * Processa um componente de ícone Quasar (q-icon)
  */
 export async function processIconComponent(node: QuasarNode, settings: PluginSettings): Promise<FrameNode> {
+  // Log para debug
+  console.log('Processando ícone:', node);
+  
+  const iconFrame = figma.createFrame();
+  iconFrame.name = "q-icon";
+  
+  // Verificar se node.attributes existe antes de acessar
+  const props = node.attributes ? extractStylesAndProps(node).props : {};
+  
+  // Determinar tamanho do ícone com verificação de segurança
+  let iconSize = 24; // tamanho padrão
+  if (props.size) {
+    
   logDebug('icon', `Processando ícone: ${JSON.stringify(node.attributes)}`);
   
   const iconFrame = figma.createFrame();
@@ -112,6 +125,7 @@ export async function processIconComponent(node: QuasarNode, settings: PluginSet
   }
   
   return iconFrame;
+  }
 }
 
 /**

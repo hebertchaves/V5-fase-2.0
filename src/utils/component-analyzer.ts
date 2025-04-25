@@ -23,6 +23,14 @@ export function analyzeComponentColors(node: QuasarNode): {
   
   // Verificar atributos de cor
   if (node.attributes) {
+    // Verificação segura para a classe
+    const classStr = node.attributes.class;
+    if (classStr && typeof classStr === 'string') {
+      const classes = classStr.split(/\s+/).filter(c => c);
+      // Resto do processamento...
+    } else {
+      console.log(`Nó ${node.tagName} não possui classes para processar`);
+    }
     // Cor principal
     if (node.attributes.color) {
       result.mainColor = node.attributes.color;
@@ -59,7 +67,16 @@ export function analyzeComponentColors(node: QuasarNode): {
       }
     }
   }
-  
+  // Função para processar classes com segurança
+  function processClassesSafely(classStr: string | undefined): string[] {
+    if (!classStr || typeof classStr !== 'string') {
+      return [];
+    }
+    return classStr.split(/\s+/).filter(Boolean);
+  }
+
+  // Usar em qualquer lugar que processe classes
+  const classes = processClassesSafely(node.attributes?.class);
   // Inferir cores caso estejam faltando
   if (result.colorVariant === 'flat') {
     result.bgColor = null; // Sem cor de fundo para flat

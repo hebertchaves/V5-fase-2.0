@@ -295,10 +295,27 @@ export class EnhancedTemplateParser {
     // Processar atributos com avaliação contextual
     const attributes: Record<string, string> = {};
     if (node.attributes) {
+      // Verificação segura para a classe
+      const classStr = node.attributes.class;
+      if (classStr && typeof classStr === 'string') {
+        const classes = classStr.split(/\s+/).filter(c => c);
+        // Resto do processamento...
+      } else {
+        console.log(`Nó ${node.tagName} não possui classes para processar`);
+      }
       Object.entries(node.attributes).forEach(([key, value]) => {
         attributes[key] = value as string;
       });
-      
+        // Função para processar classes com segurança
+        function processClassesSafely(classStr: string | undefined): string[] {
+          if (!classStr || typeof classStr !== 'string') {
+            return [];
+          }
+          return classStr.split(/\s+/).filter(Boolean);
+        }
+
+        // Usar em qualquer lugar que processe classes
+        const classes = processClassesSafely(node.attributes?.class);
       // Processar atributos especiais do Vue com avaliação contextual
       for (const [key, value] of Object.entries(attributes)) {
         // v-bind:prop ou :prop
