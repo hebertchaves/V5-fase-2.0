@@ -166,6 +166,8 @@ async function processNodeTree(node: QuasarNode, parentFigmaNode: FrameNode, set
   // Processar nós de texto
   if (node.tagName === '#text' && node.text) {
     try {
+
+      
       // Melhorar o tratamento de quebras de linha HTML
       const lines = node.text.trim().split(/\s*<br>\s*/);
       for (const line of lines) {
@@ -181,19 +183,51 @@ async function processNodeTree(node: QuasarNode, parentFigmaNode: FrameNode, set
     }
     return;
   }
-   let componentType: ComponentTypeInfo; // Declarar no escopo correto
+  
   // Log para debug
   logDebug('processNode', `Processando nó: ${node.tagName}`);
   
   // Verificar se é um componente Quasar
   const isQuasarComponent = node.tagName.toLowerCase().startsWith('q-');
   let figmaNode: FrameNode;
- 
+  let componentType: ComponentTypeInfo; // Declarar no escopo correto
+
+  // Marcar componentes processados por processadores específicos
+  if (figmaNode && isQuasarComponent) {
+    figmaNode.setPluginData('processed_by_specific_processor', 'true');
+  }
+
+  // No método que processa a árvore de nós
+  if (figmaNode.getPluginData('processed_by_specific_processor') === 'true') {
+    // Não encapsular em frames adicionais, usar diretamente
+    parentFigmaNode.appendChild(figmaNode);
+    return;
+  }
   
   if (isQuasarComponent) {
     componentType = detectComponentType(node);
     logInfo('processNode', `Componente Quasar detectado: ${componentType.category}/${componentType.type}`);
     
+    try {
+      // Usar o processador de componente específico quando disponível
+      figmaNode = await componentService.processComponentByCategory(
+        node,
+        componentType.category,
+        componentType.type,
+        settings
+      );
+      
+      // Adicionar diretamente ao nó pai e retornar, sem criar frame adicional
+      parentFigmaNode.appendChild(figmaNode);
+      
+      // Processar filhos somente se necessário (para componentes container)
+      // Alguns componentes já processam seus próprios filhos internamente
+      
+      return;
+    } catch (error) {
+      // Fallback para processador genérico...
+    }
+       
     try {
       // Adicionar contexto de pai se presente
       if (node.parentContext) {

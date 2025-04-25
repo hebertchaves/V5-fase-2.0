@@ -210,12 +210,20 @@ export function colorAnalysisToFigmaProps(analysis: ReturnType<typeof analyzeCom
  * Função unificada para aplicar cores a componentes Figma
  */
 export function applyQuasarColors(
-  node: any, // Use any temporariamente para resolver o problema de tipo
+  node: any,
   analysis: ReturnType<typeof analyzeComponentColors>,
   componentType: string
 ): void {
+
   // Verificar o tipo de nó
   const isQuasarNode = node && typeof node === 'object' && 'parentContext' in node;
+
+  // ADICIONAR: Suporte para variações tonais mais precisas
+  if (analysis.mainColor && analysis.mainColor.includes('-')) {
+    // Extrair base e tom (ex: "primary-7")
+    const [baseColor, tone] = analysis.mainColor.split('-');
+    // Aplicar tom específico...
+  }
   
   // Aplicar cores de acordo com o tipo de componente
   switch (componentType) {

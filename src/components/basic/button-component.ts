@@ -80,6 +80,21 @@ export async function processButtonComponent(node: QuasarNode, settings: PluginS
   
   // Analisar configurações de cor do componente
   const colorAnalysis = analyzeComponentColors(node);
+
+  // Abordagem corrigida para fullWidth
+  if (props.fullWidth === 'true' || props.fullWidth === '') {
+    // Aplicar diretamente ao buttonFrame em vez de criar um novo frame
+    buttonFrame.primaryAxisSizingMode = "FILL_CONTAINER";
+    buttonFrame.counterAxisSizingMode = "FILL_CONTAINER";
+    // Marcar como fullWidth na nomenclatura
+    buttonFrame.name = "q-btn (full-width)";
+  }
+
+  // Se precisar definir uma largura específica
+  if ('block' in props || props.block === 'true' || props.block === '') {
+    // Definir largura em vez de criar novo frame
+    buttonFrame.resize(240, buttonFrame.height); // Largura padrão para botões de bloco
+  }
   
   // ESTRUTURA HIERÁRQUICA CORRETA - 1. Criar o wrapper
   const wrapperNode = figma.createFrame();
@@ -381,6 +396,6 @@ export async function processButtonComponent(node: QuasarNode, settings: PluginS
   
   // Aplicar cores do Quasar
   applyQuasarColors(buttonFrame, colorAnalysis, 'btn');
-  
+
   return buttonFrame;
 }
