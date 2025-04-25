@@ -28,7 +28,12 @@ export function isInsidePrimaryComponent(node: QuasarNode): boolean {
  * MODIFICADO: Melhor detecção do texto do botão
  */
 export function getButtonText(node: QuasarNode): string {
-  // Verificar atributo label
+  // Se tiver label, usar diretamente
+  if (node.attributes && node.attributes.label) {
+    return node.attributes.label;
+  }
+  
+  // Verificar se tem ícone sem texto
   if (node.attributes) {
     if ((node.attributes.round === 'true' || node.attributes.round === '') && 
         node.attributes.icon && 
@@ -37,14 +42,23 @@ export function getButtonText(node: QuasarNode): string {
     }
   }
   
-  // Verificar conteúdo de texto direto
+  // Buscar texto nos filhos, mas evitar q-tooltip e outros componentes filhos
   let textContent = '';
   for (const child of node.childNodes) {
+    // Pular componentes Quasar filhos como q-tooltip
+    if (child.tagName && child.tagName.startsWith('q-')) {
+      continue;
+    }
+    
     if (child.tagName === '#text' && child.text) {
       textContent += child.text.trim() + ' ';
     } else if (child.childNodes && child.childNodes.length > 0) {
-      // Buscar texto em filhos de forma recursiva
+      // Recursividade para filhos, mas ainda evitando componentes Quasar
       for (const grandChild of child.childNodes) {
+        if (grandChild.tagName && grandChild.tagName.startsWith('q-')) {
+          continue;
+        }
+        
         if (grandChild.tagName === '#text' && grandChild.text) {
           textContent += grandChild.text.trim() + ' ';
         }

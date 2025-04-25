@@ -214,15 +214,10 @@ export function applyQuasarColors(
   analysis: ReturnType<typeof analyzeComponentColors>,
   componentType: string
 ): void {
-
-  // Verificar o tipo de nó
-  const isQuasarNode = node && typeof node === 'object' && 'parentContext' in node;
-
-  // ADICIONAR: Suporte para variações tonais mais precisas
-  if (analysis.mainColor && analysis.mainColor.includes('-')) {
-    // Extrair base e tom (ex: "primary-7")
-    const [baseColor, tone] = analysis.mainColor.split('-');
-    // Aplicar tom específico...
+  // Verificar se o nó é válido
+  if (!node) {
+    console.warn('Nó inválido passado para applyQuasarColors');
+    return;
   }
   
   // Aplicar cores de acordo com o tipo de componente
@@ -239,10 +234,7 @@ export function applyQuasarColors(
       break;
   }
   
-  // Marcar o nó como tendo cores aplicadas
-  if (node && 'setPluginData' in node) {
-    node.setPluginData('colors_applied', 'true');
-  }
+  // NÃO usar setPluginData para evitar erros
 }
 
 /**
