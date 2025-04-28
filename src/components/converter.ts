@@ -9,8 +9,6 @@ import { logInfo, logError, logDebug } from '../utils/logger';
 import { processQuasarClass } from '../utils/style-utils';
 import { processButtonComponent } from '../../src/components/basic/button-component';
 
-
-
 // Rastreador de nós processados
 const processedNodeMap = new Map<string, boolean>();
 
@@ -207,24 +205,9 @@ async function processNodeTreeSafely(node: QuasarNode, parentFigmaNode: FrameNod
 const processedNodes = new Map<string, boolean>();
 
 /**
- * Processa a árvore de nós com suporte completo a cores
+ * Processa a árvore de nós com suporte completo a cores e elementos HTML
  */
 async function processNodeTree(node: QuasarNode, parentFigmaNode: FrameNode, settings: PluginSettings): Promise<void> {
-  // Gerar ID único para o nó
-  const nodeId = generateNodeId(node);
-  
-  // Adicione uma variável de estado para rastrear nós processados
-    const processedNodes = new Set<string>();
-
-  // Verificar se já foi processado
-  if (processedNodes.has(nodeId)) {
-    logDebug('processNode', `Nó já processado: ${nodeId}, pulando.`);
-    return;
-  }
-  
-  // Marcar como processado
-  processedNodes.add(nodeId);
-
   // Ignorar nós de texto vazios
   if (node.tagName === '#text' && (!node.text || !node.text.trim())) {
     return;
@@ -238,37 +221,23 @@ async function processNodeTree(node: QuasarNode, parentFigmaNode: FrameNode, set
     parentFigmaNode.appendChild(textNode);
     return;
   }
-
-
-  // Função para gerar ID único para nós
-  function generateNodeId(node: QuasarNode): string {
-    const path = [];
-    let current = node;
-    let parent = current.parentContext;
-    
-    // Construir caminho único com base na hierarquia
-    while (parent) {
-      path.unshift(parent.tagName);
-      current = parent as unknown as QuasarNode;
-      parent = current.parentContext;
-    }
-    
-    const nodeIdentifier = `${node.tagName}-${node.attributes?.label || ''}-${node.attributes?.class || ''}`;
-    return [...path, nodeIdentifier].join('/');
-  }
+  
   // Log para debug
   logDebug('processNode', `Processando nó: ${node.tagName}`);
   
   // Verificar se é um componente Quasar
   const isQuasarComponent = node.tagName.toLowerCase().startsWith('q-');
-  let figmaNode: FrameNode | null = null;
+  let figmaNode: SceneNode;
+  let componentType: ComponentTypeInfo; // Declarar no escopo correto
   
   if (isQuasarComponent) {
-    const componentType = detectComponentType(node);
+    componentType = detectComponentType(node);
     logInfo('processNode', `Componente Quasar detectado: ${componentType.category}/${componentType.type}`);
     
     try {
-      // Tentar processar com processador específico
+      const colorAnalysis = analyzeComponentColors(node);
+      logDebug('processNode', `Análise de cor: ${JSON.stringify(colorAnalysis)}`);
+      
       figmaNode = await componentService.processComponentByCategory(
         node,
         componentType.category,
@@ -276,57 +245,132 @@ async function processNodeTree(node: QuasarNode, parentFigmaNode: FrameNode, set
         settings
       );
       
-      if (figmaNode) {
-        // Aplicar cores e adicionar ao nó pai
-        const colorAnalysis = analyzeComponentColors(node);
+      if (figmaNode && !figmaNode.getPluginData('colors_applied')) {
         applyQuasarColors(figmaNode, colorAnalysis, componentType.type);
-        
-        // Adicionar ao pai
-        parentFigmaNode.appendChild(figmaNode);
-        
-        // Processar filhos do componente se necessário
-        // Por exemplo, para q-btn com q-tooltip dentro
-        if (node.childNodes && node.childNodes.length > 0) {
-          // Processar apenas componentes filhos que sejam Quasar
-          for (const child of node.childNodes) {
-            if (child.tagName && child.tagName.startsWith('q-')) {
-              await processNodeTree(child, figmaNode, settings);
-            }
-          }
-        }
-        
-        return; // Retornar apenas após processar completamente o componente
+        figmaNode.setPluginData('colors_applied', 'true');
       }
     } catch (error) {
       logError('processNode', `Erro ao processar componente Quasar: ${node.tagName}`, error);
-      // Fallback para processador genérico abaixo
+      figmaNode = await processGenericComponent(node, settings);
+      
+      const colorAnalysis = analyzeComponentColors(node);
+      applyQuasarColors(figmaNode, colorAnalysis, 'generic');
+    }
+  } else if (node.tagName && ['br', 'hr', 'img', 'span', 'div', 'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'li', 'a'].includes(node.tagName.toLowerCase())) {
+    // Processar elementos HTML comuns
+    figmaNode = await processHTMLElement(node, settings);
+  } else {
+    figmaNode = await processGenericComponent(node, settings);
+  }
+  
+  // Processamento específico para componentes de layout
+  if (isQuasarComponent && componentType.category === 'layout') {
+    // Adicionar contexto aos filhos para que saibam que estão dentro de um componente de layout
+    for (const childNode of node.childNodes) {
+      if (childNode.tagName && childNode.tagName !== '#text') {
+        childNode.parentContext = {
+          tagName: node.tagName,
+          attributes: node.attributes,
+          isPrimaryComponent: true
+        };
+      }
     }
   }
 
-  const classes = node.attributes.class.split(/\s+/);
+  // Adicionar ao nó pai, garantindo que é do tipo ChildrenMixin
+  if ('appendChild' in parentFigmaNode) {
+    parentFigmaNode.appendChild(figmaNode);
+  }
   
-  // Ordenar classes para aplicar na ordem correta
-  const sortedClasses = classes.sort((a, b) => {
-  const order = ['full-width', 'full-height', 'row', 'column', 'q-pa-', 'q-ma-', 'q-gutter-', 'text-', 'bg-'];
-  const getOrder = (className: string) => {
-    for (let i = 0; i < order.length; i++) {
-      if (className.startsWith(order[i])) return i;
-    }
-    return order.length;
-  };
-  return getOrder(a) - getOrder(b);
-});
-  
-  // Processamento genérico (apenas para nós que não foram processados por processadores específicos)
-  figmaNode = await processGenericComponent(node, settings);
-  parentFigmaNode.appendChild(figmaNode);
-  
-  // Processar filhos recursivamente
-  if (node.childNodes && node.childNodes.length > 0) {
-    for (const child of node.childNodes) {
-      await processNodeTree(child, figmaNode, settings);
+  // Processar filhos recursivamente apenas para elementos que não são <br> ou tags similares sem filhos
+  if (!['br', 'hr', 'img'].includes(node.tagName.toLowerCase()) && node.childNodes && node.childNodes.length > 0) {
+    // Se o nó for um frame ou outro container que pode ter filhos
+    if ('appendChild' in figmaNode) {
+      for (const child of node.childNodes) {
+        await processNodeTree(child, figmaNode as FrameNode, settings);
+      }
     }
   }
+}
+
+/**
+ * Processa elementos HTML comuns como <br>, <hr>, <img>, etc.
+ */
+async function processHTMLElement(node: QuasarNode, settings: PluginSettings): Promise<SceneNode> {
+  const tagName = node.tagName.toLowerCase();
+  
+  // Tag <br> - Quebra de linha
+  if (tagName === 'br') {
+    // Para <br>, criamos um TextNode com uma quebra de linha
+    const textNode = figma.createText();
+    await figma.loadFontAsync({ family: "Roboto", style: "Regular" });
+    textNode.characters = "\n";
+    textNode.name = "br";
+    return textNode;
+  }
+  
+  // Tag <hr> - Linha horizontal
+  if (tagName === 'hr') {
+    const line = figma.createLine();
+    line.name = "hr";
+    line.strokeWeight = 1;
+    line.strokes = [{ type: 'SOLID', color: { r: 0.8, g: 0.8, b: 0.8 } }];
+    line.resize(100, 0);
+    return line;
+  }
+  
+  // Tag <img> - Imagem
+  if (tagName === 'img') {
+    const imgFrame = figma.createFrame();
+    imgFrame.name = "img";
+    
+    // Tentar obter dimensões da imagem dos atributos
+    const width = parseInt(node.attributes?.width || '100');
+    const height = parseInt(node.attributes?.height || '100');
+    
+    imgFrame.resize(width, height);
+    imgFrame.fills = [{ type: 'SOLID', color: { r: 0.9, g: 0.9, b: 0.9 } }];
+    
+    // Adicionar o alt text se disponível
+    if (node.attributes?.alt) {
+      const altText = await createText(node.attributes.alt);
+      if (altText) {
+        imgFrame.appendChild(altText);
+      }
+    }
+    
+    return imgFrame;
+  }
+  
+  // Para outros elementos HTML, criar um frame genérico
+  const frame = figma.createFrame();
+  frame.name = tagName;
+  frame.layoutMode = "VERTICAL";
+  frame.primaryAxisSizingMode = "AUTO";
+  frame.counterAxisSizingMode = "AUTO";
+  frame.fills = [{ type: 'SOLID', color: { r: 1, g: 1, b: 1 }, opacity: 0 }];
+  
+  // Processar atributos e classes, se houver
+  if (node.attributes) {
+    // Processar classes
+    if (node.attributes.class) {
+      const classes = (node.attributes.class || '').split(/\s+/).filter(Boolean);
+      for (const className of classes) {
+        const classStyles = processQuasarClass(className);
+        if (classStyles) {
+          applyStylesToFigmaNode(frame, classStyles);
+        }
+      }
+    }
+    
+    // Processar atributo style
+    if (node.attributes.style) {
+      const styles = extractInlineStyles(node.attributes.style);
+      applyStylesToFigmaNode(frame, styles);
+    }
+  }
+  
+  return frame;
 }
 
 // Função auxiliar para gerar ID
@@ -391,7 +435,7 @@ export async function processGenericComponent(node: QuasarNode, settings: Plugin
 
     // Usar em qualquer lugar que processe classes
     const classes = processClassesSafely(node.attributes?.class);
-    
+
     // Processar style attribute (se existir)
     if (node.attributes.style) {
       const styles = extractInlineStyles(node.attributes.style);

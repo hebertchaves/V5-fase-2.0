@@ -147,8 +147,14 @@ function convertToQuasarNode(node: any, context: Record<string, any>): QuasarNod
     };
   }
   
+  // Garantir que attributes seja sempre um objeto válido
   const attributes: Record<string, string> = {};
   if (node.attributes) {
+    Object.entries(node.attributes).forEach(([key, value]) => {
+      if (value !== undefined) {
+        attributes[key] = String(value);
+      }
+    });
     // Verificação segura para a classe
     const classStr = node.attributes.class;
     if (classStr && typeof classStr === 'string') {
@@ -209,31 +215,31 @@ function convertToQuasarNode(node: any, context: Record<string, any>): QuasarNod
     // Remover v-if para evitar processamento repetido
     delete attributes['v-if'];
   }
+  // Processar filhos recursivamente
   const childNodes: QuasarNode[] = [];
   if (node.childNodes && node.childNodes.length > 0) {
     node.childNodes.forEach((child: any) => {
-      if (child.nodeType === 3 && (!child.text || !child.text.trim())) {
-        return;
-      }
-      
-      try {
-        const quasarChild = convertToQuasarNode(child, context);
-        // Adicionar apenas se não for um nó vazio (v-if=false)
-        if (quasarChild.tagName !== 'empty') {
-          childNodes.push(quasarChild);
+      // Ignorar nós de texto vazios, mas processar outros nós
+      if (!(child.nodeType === 3 && (!child.text || !child.text.trim()))) {
+        try {
+          const quasarChild = convertToQuasarNode(child, context);
+          // Adicionar apenas se não for um nó vazio (v-if=false)
+          if (quasarChild.tagName !== 'empty') {
+            childNodes.push(quasarChild);
+          }
+        } catch (error) {
+          console.warn('Erro ao converter nó filho:', error);
         }
-      } catch (error) {
-        console.warn('Erro ao converter nó filho:', error);
       }
     });
   }
   // Adicionar uma conversão ou adaptação de tipos
-const componentContext: ComponentContext = {
+  const componentContext: ComponentContext = {
   props: context.props || {},
   data: context.data || {},
   computed: context.computed || {},
   methods: context.methods || {}
-};
+  };
 
   // Adicionar processamento de diretivas Vue com contexto
   if (attributes['v-if']) {
@@ -259,9 +265,6 @@ const componentContext: ComponentContext = {
     text: node.text ? node.text.trim() : undefined
   };
 }
-
-
-
 
 // Interface simplificada para exportação
 export class TemplateParser {
